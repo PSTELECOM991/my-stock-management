@@ -8,7 +8,7 @@ import {
   Plus, Minus, Package, History, AlertCircle, CheckCircle2, 
   Search, Settings, Home, List, Moon, Sun, Languages, 
   Eye, EyeOff, Edit2, X, ChevronRight, MoreVertical,
-  ArrowUpRight, ArrowDownLeft, Box, ArrowRight
+  ArrowUpRight, ArrowDownLeft, Box, ArrowRight, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { StockItem, Transaction } from './types';
@@ -25,6 +25,7 @@ export default function App() {
   const [language, setLanguage] = useState<'BN' | 'EN'>('BN');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -133,8 +134,8 @@ export default function App() {
     setTimeout(() => setSuccess(null), 3000);
   };
 
-  const handleQuickAdjustment = (item: StockItem, type: 'IN' | 'OUT') => {
-    const amount = parseInt(adjustmentAmount);
+  const handleQuickAdjustment = (item: StockItem, type: 'IN' | 'OUT', customAmount?: number) => {
+    const amount = customAmount || parseInt(adjustmentAmount);
     if (isNaN(amount) || amount <= 0) {
       setError(language === 'BN' ? 'সঠিক সংখ্যা দিন' : 'Enter valid number');
       return;
@@ -168,12 +169,14 @@ export default function App() {
     };
     setTransactions([newTransaction, ...transactions]);
 
-    // Update selected item view
-    setSelectedItem({
-      ...item,
-      quantity: type === 'IN' ? item.quantity + amount : item.quantity - amount,
-      lastUpdated: new Date()
-    });
+    // Update selected item view only if it's already open
+    if (selectedItem?.id === item.id) {
+      setSelectedItem({
+        ...item,
+        quantity: type === 'IN' ? item.quantity + amount : item.quantity - amount,
+        lastUpdated: new Date()
+      });
+    }
 
     setSuccess(language === 'BN' ? 'স্টক সমন্বয় সফল হয়েছে' : 'Stock adjustment successful');
     setTimeout(() => setSuccess(null), 3000);
@@ -200,6 +203,14 @@ export default function App() {
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className={`p-2 rounded-xl transition-all ${
+                isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
+              }`}
+            >
+              <Menu size={24} />
+            </button>
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
               <Package size={22} />
             </div>
@@ -279,14 +290,6 @@ export default function App() {
             >
               <Plus size={24} />
             </button>
-            <button 
-              onClick={() => setCurrentView('SETTINGS')}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:text-indigo-600'
-              }`}
-            >
-              <Settings size={20} />
-            </button>
           </div>
         </div>
       </header>
@@ -351,6 +354,28 @@ export default function App() {
                     <div className="flex items-center justify-between">
                       <p className="text-2xl font-black">{item.quantity}</p>
                       <p className="text-xs text-slate-500">Box: {item.boxNumber}</p>
+                    </div>
+                    
+                    {/* Instant Adjustment Buttons */}
+                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleQuickAdjustment(item, 'IN', 1); 
+                        }}
+                        className="flex-1 py-2 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1"
+                      >
+                        <Plus size={14} /> {t('ইন', 'IN')}
+                      </button>
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleQuickAdjustment(item, 'OUT', 1); 
+                        }}
+                        className="flex-1 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1"
+                      >
+                        <Minus size={14} /> {t('আউট', 'OUT')}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -457,15 +482,32 @@ export default function App() {
                         )}
                         <td className="p-4 text-sm font-bold text-emerald-500">₹{item.sellingPrice}</td>
                         <td className="p-4">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditing(item);
-                            }}
-                            className="p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-500 rounded-lg"
-                          >
-                            <Edit2 size={16} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleQuickAdjustment(item, 'IN', 1); }}
+                              className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-500 rounded-lg"
+                              title={t('স্টক ইন', 'Stock In')}
+                            >
+                              <Plus size={16} />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleQuickAdjustment(item, 'OUT', 1); }}
+                              className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-500 rounded-lg"
+                              title={t('স্টক আউট', 'Stock Out')}
+                            >
+                              <Minus size={16} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditing(item);
+                              }}
+                              className="p-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-500 rounded-lg"
+                              title={t('এডিট', 'Edit')}
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -527,16 +569,115 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Bottom Navigation */}
+      {/* Sidebar Drawer */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`fixed top-0 left-0 bottom-0 w-80 z-50 shadow-2xl flex flex-col ${
+                isDarkMode ? 'bg-slate-900 border-r border-slate-800' : 'bg-white border-r border-slate-200'
+              }`}
+            >
+              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+                    <Package size={18} />
+                  </div>
+                  <span className="font-bold">{t('মেনু', 'Menu')}</span>
+                </div>
+                <button 
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                <button
+                  onClick={() => { setCurrentView('HOME'); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                    currentView === 'HOME' 
+                    ? 'bg-indigo-600 text-white' 
+                    : isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <Home size={20} /> {t('হোম', 'Home')}
+                </button>
+                <button
+                  onClick={() => { setCurrentView('SETTINGS'); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                    currentView === 'SETTINGS' 
+                    ? 'bg-indigo-600 text-white' 
+                    : isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <Settings size={20} /> {t('সেটিংস', 'Settings')}
+                </button>
+
+                <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
+                  <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                    {t('সেটিংস', 'Settings')}
+                  </p>
+                  
+                  <div className="space-y-4 px-4 py-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {isDarkMode ? <Moon size={18} className="text-indigo-400" /> : <Sun size={18} className="text-amber-500" />}
+                        <span className="text-sm font-medium">{t('ডার্ক মোড', 'Dark Mode')}</span>
+                      </div>
+                      <button 
+                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        className={`w-10 h-5 rounded-full relative transition-colors ${isDarkMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                      >
+                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isDarkMode ? 'left-5.5' : 'left-0.5'}`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Languages size={18} className="text-emerald-500" />
+                        <span className="text-sm font-medium">{t('ভাষা', 'Language')}</span>
+                      </div>
+                      <button 
+                        onClick={() => setLanguage(language === 'BN' ? 'EN' : 'BN')}
+                        className="text-[10px] font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded"
+                      >
+                        {language === 'BN' ? 'EN' : 'বাংলা'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-slate-200 dark:border-slate-800">
+                <p className="text-[10px] text-center text-slate-500 font-medium">
+                  Shop Stock Manager v2.0
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
       <nav className={`fixed bottom-0 left-0 right-0 border-t backdrop-blur-md z-40 ${
         isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200'
       }`}>
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           {[
             { id: 'HOME', icon: Home, label: t('হোম', 'Home') },
-            { id: 'HISTORY', icon: History, label: t('হিস্ট্রি', 'History') },
             { id: 'ALL_PRODUCTS', icon: List, label: t('সব পণ্য', 'Products') },
-            { id: 'SETTINGS', icon: Settings, label: t('সেটিংস', 'Settings') },
+            { id: 'HISTORY', icon: History, label: t('হিস্ট্রি', 'History') },
           ].map((nav) => (
             <button
               key={nav.id}
