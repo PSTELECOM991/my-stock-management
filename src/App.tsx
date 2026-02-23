@@ -1,0 +1,802 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Plus, Minus, Package, History, AlertCircle, CheckCircle2, 
+  Search, Settings, Home, List, Moon, Sun, Languages, 
+  Eye, EyeOff, Edit2, X, ChevronRight, MoreVertical,
+  ArrowUpRight, ArrowDownLeft, Box, ArrowRight
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { StockItem, Transaction } from './types';
+
+type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS';
+
+export default function App() {
+  // State
+  const [items, setItems] = useState<StockItem[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [currentView, setCurrentView] = useState<View>('HOME');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showPurchasePrice, setShowPurchasePrice] = useState(true);
+  const [language, setLanguage] = useState<'BN' | 'EN'>('BN');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+
+  // Modals
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
+  const [adjustmentAmount, setAdjustmentAmount] = useState<string>('1');
+
+  // Form State
+  const [formData, setFormData] = useState({
+    name: '',
+    quantity: '',
+    purchasePrice: '',
+    sellingPrice: '',
+    boxNumber: ''
+  });
+
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Dark Mode Effect
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter(item => 
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.boxNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [items, searchTerm]);
+
+  const handleAddProduct = () => {
+    setError(null);
+    if (!formData.name || !formData.quantity || !formData.purchasePrice || !formData.sellingPrice) {
+      setError(language === 'BN' ? 'সবগুলো ঘর পূরণ করুন' : 'Please fill all fields');
+      return;
+    }
+
+    const newItem: StockItem = {
+      id: crypto.randomUUID(),
+      name: formData.name,
+      quantity: parseInt(formData.quantity),
+      purchasePrice: parseFloat(formData.purchasePrice),
+      sellingPrice: parseFloat(formData.sellingPrice),
+      boxNumber: formData.boxNumber || 'N/A',
+      createdAt: new Date(),
+      lastUpdated: new Date()
+    };
+
+    setItems([newItem, ...items]);
+    
+    const newTransaction: Transaction = {
+      id: crypto.randomUUID(),
+      itemId: newItem.id,
+      itemName: newItem.name,
+      type: 'ADD',
+      amount: newItem.quantity,
+      timestamp: new Date()
+    };
+    setTransactions([newTransaction, ...transactions]);
+
+    setFormData({ name: '', quantity: '', purchasePrice: '', sellingPrice: '', boxNumber: '' });
+    setShowAddModal(false);
+    setSuccess(language === 'BN' ? 'পণ্য যোগ করা হয়েছে' : 'Product added successfully');
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleUpdateProduct = () => {
+    if (!editingItem) return;
+    setError(null);
+
+    const updatedItems = items.map(item => {
+      if (item.id === editingItem.id) {
+        return {
+          ...item,
+          name: formData.name,
+          quantity: parseInt(formData.quantity),
+          purchasePrice: parseFloat(formData.purchasePrice),
+          sellingPrice: parseFloat(formData.sellingPrice),
+          boxNumber: formData.boxNumber,
+          lastUpdated: new Date()
+        };
+      }
+      return item;
+    });
+
+    setItems(updatedItems);
+    
+    const newTransaction: Transaction = {
+      id: crypto.randomUUID(),
+      itemId: editingItem.id,
+      itemName: formData.name,
+      type: 'EDIT',
+      amount: parseInt(formData.quantity),
+      timestamp: new Date()
+    };
+    setTransactions([newTransaction, ...transactions]);
+
+    setEditingItem(null);
+    setFormData({ name: '', quantity: '', purchasePrice: '', sellingPrice: '', boxNumber: '' });
+    setSuccess(language === 'BN' ? 'পণ্য আপডেট করা হয়েছে' : 'Product updated successfully');
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleQuickAdjustment = (item: StockItem, type: 'IN' | 'OUT') => {
+    const amount = parseInt(adjustmentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError(language === 'BN' ? 'সঠিক সংখ্যা দিন' : 'Enter valid number');
+      return;
+    }
+
+    if (type === 'OUT' && item.quantity < amount) {
+      setError(language === 'BN' ? 'পর্যাপ্ত স্টক নেই!' : 'Insufficient stock!');
+      return;
+    }
+
+    const updatedItems = items.map(i => {
+      if (i.id === item.id) {
+        return {
+          ...i,
+          quantity: type === 'IN' ? i.quantity + amount : i.quantity - amount,
+          lastUpdated: new Date()
+        };
+      }
+      return i;
+    });
+
+    setItems(updatedItems);
+    
+    const newTransaction: Transaction = {
+      id: crypto.randomUUID(),
+      itemId: item.id,
+      itemName: item.name,
+      type,
+      amount,
+      timestamp: new Date()
+    };
+    setTransactions([newTransaction, ...transactions]);
+
+    // Update selected item view
+    setSelectedItem({
+      ...item,
+      quantity: type === 'IN' ? item.quantity + amount : item.quantity - amount,
+      lastUpdated: new Date()
+    });
+
+    setSuccess(language === 'BN' ? 'স্টক সমন্বয় সফল হয়েছে' : 'Stock adjustment successful');
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const startEditing = (item: StockItem) => {
+    setEditingItem(item);
+    setFormData({
+      name: item.name,
+      quantity: item.quantity.toString(),
+      purchasePrice: item.purchasePrice.toString(),
+      sellingPrice: item.sellingPrice.toString(),
+      boxNumber: item.boxNumber
+    });
+    setSelectedItem(null);
+  };
+
+  const t = (bn: string, en: string) => language === 'BN' ? bn : en;
+
+  return (
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* Top Header */}
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-md ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+              <Package size={22} />
+            </div>
+            <h1 className="text-lg font-bold tracking-tight hidden sm:block">
+              {t('স্টক ম্যানেজার', 'Stock Manager')}
+            </h1>
+          </div>
+
+          <div className="flex-1 max-w-md relative group">
+            <div className="absolute -top-5 left-0 text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-0 group-focus-within:opacity-100 transition-opacity">
+              {t('কুইক ফাইন্ড', 'Quick Find')}
+            </div>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder={t('পণ্য খুঁজুন...', 'Search products...')}
+              value={searchTerm}
+              onFocus={() => setShowSearchSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-10 pr-10 py-2 rounded-xl text-sm outline-none transition-all ${
+                isDarkMode 
+                ? 'bg-slate-800 border-slate-700 focus:ring-2 focus:ring-indigo-500/50' 
+                : 'bg-slate-100 border-slate-200 focus:ring-2 focus:ring-indigo-500/20'
+              }`}
+            />
+            <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors">
+              <ArrowRight size={18} />
+            </button>
+
+            {/* Search Suggestions Dropdown */}
+            <AnimatePresence>
+              {showSearchSuggestions && searchTerm && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className={`absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-2xl overflow-hidden z-50 ${
+                    isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                    {filteredItems.length > 0 ? (
+                      filteredItems.map(item => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setSearchTerm('');
+                          }}
+                          className={`w-full px-4 py-3 text-left flex items-center justify-between transition-colors ${
+                            isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Box size={16} className="text-indigo-500" />
+                            <span className="font-medium">{item.name}</span>
+                          </div>
+                          <span className="text-xs text-slate-500">Box: {item.boxNumber}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-slate-500 text-center italic">
+                        {t('কোনো পণ্য পাওয়া যায়নি', 'No products found')}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="w-10 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
+            >
+              <Plus size={24} />
+            </button>
+            <button 
+              onClick={() => setCurrentView('SETTINGS')}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:text-indigo-600'
+              }`}
+            >
+              <Settings size={20} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-4 pt-6 pb-24">
+        <AnimatePresence mode="wait">
+          {currentView === 'HOME' && (
+            <motion.div 
+              key="home"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: t('মোট পণ্য', 'Total Items'), value: items.length, color: 'bg-blue-500' },
+                  { label: t('স্টক কম', 'Low Stock'), value: items.filter(i => i.quantity < 5).length, color: 'bg-amber-500' },
+                  { label: t('আজকের লেনদেন', 'Today Trans'), value: transactions.filter(tr => new Date(tr.timestamp).toDateString() === new Date().toDateString()).length, color: 'bg-emerald-500' },
+                  { label: t('বক্স সংখ্যা', 'Boxes'), value: new Set(items.map(i => i.boxNumber)).size, color: 'bg-purple-500' },
+                ].map((stat, i) => (
+                  <div key={i} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                    <p className="text-xs text-slate-500 font-medium mb-1">{stat.label}</p>
+                    <p className="text-2xl font-bold">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">{t('সাম্প্রতিক স্টক', 'Recent Stock')}</h2>
+                <button 
+                  onClick={() => setCurrentView('ALL_PRODUCTS')}
+                  className="text-sm font-medium text-indigo-500 flex items-center gap-1"
+                >
+                  {t('সব দেখুন', 'See All')} <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {items.slice(0, 6).map(item => (
+                  <div 
+                    key={item.id}
+                    onClick={() => setSelectedItem(item)}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all hover:shadow-lg ${
+                      isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-indigo-500/50' : 'bg-white border-slate-200 hover:border-indigo-200'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-indigo-500">
+                        <Box size={20} />
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                        item.quantity < 5 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
+                      }`}>
+                        {item.quantity < 5 ? t('স্টক কম', 'Low') : t('ইন স্টক', 'In Stock')}
+                      </span>
+                    </div>
+                    <h3 className="font-bold truncate mb-1">{item.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <p className="text-2xl font-black">{item.quantity}</p>
+                      <p className="text-xs text-slate-500">Box: {item.boxNumber}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {currentView === 'HISTORY' && (
+            <motion.div 
+              key="history"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-4"
+            >
+              <h2 className="text-2xl font-bold mb-6">{t('লেনদেনের ইতিহাস', 'Transaction History')}</h2>
+              <div className="space-y-3">
+                {transactions.map(tr => (
+                  <div key={tr.id} className={`p-4 rounded-2xl border flex items-center justify-between ${
+                    isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                  }`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        tr.type === 'IN' || tr.type === 'ADD' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                      }`}>
+                        {tr.type === 'IN' || tr.type === 'ADD' ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
+                      </div>
+                      <div>
+                        <p className="font-bold">{tr.itemName}</p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(tr.timestamp).toLocaleString(language === 'BN' ? 'bn-BD' : 'en-US')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold ${tr.type === 'IN' || tr.type === 'ADD' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {tr.type === 'IN' || tr.type === 'ADD' ? '+' : '-'}{tr.amount}
+                      </p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400">{tr.type}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {currentView === 'ALL_PRODUCTS' && (
+            <motion.div 
+              key="all_products"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">{t('সব পণ্য', 'All Products')}</h2>
+                <button 
+                  onClick={() => setShowPurchasePrice(!showPurchasePrice)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {showPurchasePrice ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPurchasePrice ? t('কেনা দাম লুকান', 'Hide Purchase Price') : t('কেনা দাম দেখুন', 'Show Purchase Price')}
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left border-collapse">
+                  <thead className={isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}>
+                    <tr>
+                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('নাম', 'Name')}</th>
+                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('পরিমাণ', 'Qty')}</th>
+                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('বক্স', 'Box')}</th>
+                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('তারিখ', 'Date')}</th>
+                      {showPurchasePrice && (
+                        <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('কেনা', 'Buy')}</th>
+                      )}
+                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('বিক্রি', 'Sell')}</th>
+                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('অ্যাকশন', 'Action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    {filteredItems.map(item => (
+                      <tr 
+                        key={item.id} 
+                        onClick={() => setSelectedItem(item)}
+                        className={`cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-900' : 'hover:bg-slate-50'}`}
+                      >
+                        <td className="p-4 font-bold">{item.name}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                            item.quantity < 5 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 dark:bg-slate-800'
+                          }`}>
+                            {item.quantity}
+                          </span>
+                        </td>
+                        <td className="p-4 text-sm text-slate-500">{item.boxNumber}</td>
+                        <td className="p-4 text-[10px] text-slate-500">
+                          {new Date(item.createdAt).toLocaleDateString(language === 'BN' ? 'bn-BD' : 'en-US')}
+                        </td>
+                        {showPurchasePrice && (
+                          <td className="p-4 text-sm font-medium">₹{item.purchasePrice}</td>
+                        )}
+                        <td className="p-4 text-sm font-bold text-emerald-500">₹{item.sellingPrice}</td>
+                        <td className="p-4">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditing(item);
+                            }}
+                            className="p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-500 rounded-lg"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+
+          {currentView === 'SETTINGS' && (
+            <motion.div 
+              key="settings"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-md mx-auto space-y-6"
+            >
+              <h2 className="text-2xl font-bold mb-6">{t('সেটিংস', 'Settings')}</h2>
+              
+              <div className={`p-6 rounded-3xl border space-y-6 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 flex items-center justify-center">
+                      {isDarkMode ? <Moon size={20} /> : <Sun size={20} />}
+                    </div>
+                    <div>
+                      <p className="font-bold">{t('ডার্ক মোড', 'Dark Mode')}</p>
+                      <p className="text-xs text-slate-500">{t('চোখের আরামের জন্য', 'Easier on the eyes')}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${isDarkMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isDarkMode ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-500 flex items-center justify-center">
+                      <Languages size={20} />
+                    </div>
+                    <div>
+                      <p className="font-bold">{t('ভাষা', 'Language')}</p>
+                      <p className="text-xs text-slate-500">{t('বাংলা বা ইংরেজি', 'Bengali or English')}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setLanguage(language === 'BN' ? 'EN' : 'BN')}
+                    className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-bold"
+                  >
+                    {language === 'BN' ? 'ENGLISH' : 'বাংলা'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className={`fixed bottom-0 left-0 right-0 border-t backdrop-blur-md z-40 ${
+        isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200'
+      }`}>
+        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+          {[
+            { id: 'HOME', icon: Home, label: t('হোম', 'Home') },
+            { id: 'HISTORY', icon: History, label: t('হিস্ট্রি', 'History') },
+            { id: 'ALL_PRODUCTS', icon: List, label: t('সব পণ্য', 'Products') },
+            { id: 'SETTINGS', icon: Settings, label: t('সেটিংস', 'Settings') },
+          ].map((nav) => (
+            <button
+              key={nav.id}
+              onClick={() => setCurrentView(nav.id as View)}
+              className={`flex flex-col items-center gap-1 transition-all ${
+                currentView === nav.id 
+                ? 'text-indigo-500 scale-110' 
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+            >
+              <nav.icon size={22} strokeWidth={currentView === nav.id ? 2.5 : 2} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">{nav.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Add/Edit Modal */}
+      <AnimatePresence>
+        {(showAddModal || editingItem) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowAddModal(false); setEditingItem(null); }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden ${
+                isDarkMode ? 'bg-slate-900' : 'bg-white'
+              }`}
+            >
+              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h3 className="text-xl font-bold">
+                  {editingItem ? t('পণ্য এডিট করুন', 'Edit Product') : t('নতুন পণ্য যোগ করুন', 'Add New Product')}
+                </h3>
+                <button 
+                  onClick={() => { setShowAddModal(false); setEditingItem(null); }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('পণ্যের নাম', 'Product Name')}</label>
+                    <input 
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('পরিমাণ', 'Quantity')}</label>
+                    <input 
+                      type="number"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({...formData, quantity: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('বক্স নাম্বার', 'Box Number')}</label>
+                    <input 
+                      type="text"
+                      value={formData.boxNumber}
+                      onChange={(e) => setFormData({...formData, boxNumber: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('কেনা দাম', 'Purchase Price')}</label>
+                    <input 
+                      type="number"
+                      value={formData.purchasePrice}
+                      onChange={(e) => setFormData({...formData, purchasePrice: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('বিক্রি দাম', 'Selling Price')}</label>
+                    <input 
+                      type="number"
+                      value={formData.sellingPrice}
+                      onChange={(e) => setFormData({...formData, sellingPrice: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 text-sm rounded-xl flex items-center gap-2">
+                    <AlertCircle size={16} /> {error}
+                  </div>
+                )}
+
+                <button 
+                  onClick={editingItem ? handleUpdateProduct : handleAddProduct}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                >
+                  {editingItem ? t('আপডেট করুন', 'Update Product') : t('সেভ করুন', 'Save Product')}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Product Detail Modal */}
+      <AnimatePresence>
+        {selectedItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedItem(null)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden ${
+                isDarkMode ? 'bg-slate-900' : 'bg-white'
+              }`}
+            >
+              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h3 className="text-xl font-bold">{t('পণ্যের বিস্তারিত', 'Product Details')}</h3>
+                <button 
+                  onClick={() => setSelectedItem(null)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 rounded-2xl flex items-center justify-center">
+                    <Box size={32} />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black">{selectedItem.name}</h4>
+                    <p className="text-sm text-slate-500">Box: {selectedItem.boxNumber}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={`p-4 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t('বর্তমান স্টক', 'Current Stock')}</p>
+                    <p className="text-2xl font-black">{selectedItem.quantity}</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t('বিক্রি দাম', 'Selling Price')}</p>
+                    <p className="text-2xl font-black text-emerald-500">₹{selectedItem.sellingPrice}</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t('কেনা দাম', 'Purchase Price')}</p>
+                    <p className="text-xl font-bold">₹{selectedItem.purchasePrice}</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{t('লাভ (প্রতি পিস)', 'Profit/Unit')}</p>
+                    <p className="text-xl font-bold text-indigo-500">₹{selectedItem.sellingPrice - selectedItem.purchasePrice}</p>
+                  </div>
+                </div>
+
+                {/* Quick Stock Adjustment */}
+                <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-wider">
+                    {t('কুইক স্টক অ্যাডজাস্টমেন্ট', 'Quick Stock Adjustment')}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="number"
+                      value={adjustmentAmount}
+                      onChange={(e) => setAdjustmentAmount(e.target.value)}
+                      className={`w-20 px-3 py-2 rounded-xl border text-center font-bold outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
+                      }`}
+                    />
+                    <button 
+                      onClick={() => handleQuickAdjustment(selectedItem, 'IN')}
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95"
+                    >
+                      <Plus size={16} /> {t('ইন', 'IN')}
+                    </button>
+                    <button 
+                      onClick={() => handleQuickAdjustment(selectedItem, 'OUT')}
+                      className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95"
+                    >
+                      <Minus size={16} /> {t('আউট', 'OUT')}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">{t('যোগ করা হয়েছে:', 'Created At:')}</span>
+                    <span className="font-medium">{new Date(selectedItem.createdAt).toLocaleString(language === 'BN' ? 'bn-BD' : 'en-US')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">{t('শেষ আপডেট:', 'Last Updated:')}</span>
+                    <span className="font-medium">{new Date(selectedItem.lastUpdated).toLocaleString(language === 'BN' ? 'bn-BD' : 'en-US')}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => startEditing(selectedItem)}
+                    className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <Edit2 size={18} /> {t('এডিট', 'Edit')}
+                  </button>
+                  <button 
+                    onClick={() => setSelectedItem(null)}
+                    className={`flex-1 py-3 font-bold rounded-xl border ${
+                      isDarkMode ? 'border-slate-700 hover:bg-slate-800' : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {t('বন্ধ করুন', 'Close')}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Toast */}
+      <AnimatePresence>
+        {success && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-emerald-600 text-white font-bold rounded-full shadow-2xl flex items-center gap-2"
+          >
+            <CheckCircle2 size={20} />
+            {success}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
+}
