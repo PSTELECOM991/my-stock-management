@@ -320,6 +320,44 @@ export default function App() {
                 ))}
               </div>
 
+              {/* Quick Adjustment Buttons */}
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setShowAddModal(true)}
+                  className={`p-6 rounded-3xl border flex flex-col items-center gap-3 transition-all active:scale-95 group ${
+                    isDarkMode ? 'bg-emerald-900/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-900/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'
+                  }`}
+                >
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-emerald-500/20' : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'}`}>
+                    <ArrowUpRight size={32} />
+                  </div>
+                  <div className="text-center">
+                    <span className="font-black text-xl block leading-tight">{t('স্টক ইন', 'Stock In')}</span>
+                    <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">{t('পণ্য যোগ করুন', 'Add Stock')}</span>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+                    if (searchInput) searchInput.focus();
+                    setSuccess(language === 'BN' ? 'পণ্যটি খুঁজে বের করুন স্টক আউট করার জন্য' : 'Search for the product to stock out');
+                    setTimeout(() => setSuccess(null), 3000);
+                  }}
+                  className={`p-6 rounded-3xl border flex flex-col items-center gap-3 transition-all active:scale-95 group ${
+                    isDarkMode ? 'bg-rose-900/10 border-rose-500/20 text-rose-400 hover:bg-rose-900/20' : 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100'
+                  }`}
+                >
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-rose-500/20' : 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'}`}>
+                    <ArrowDownLeft size={32} />
+                  </div>
+                  <div className="text-center">
+                    <span className="font-black text-xl block leading-tight">{t('স্টক আউট', 'Stock Out')}</span>
+                    <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">{t('পণ্য কমান', 'Reduce Stock')}</span>
+                  </div>
+                </button>
+              </div>
+
               {/* Quick Actions */}
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">{t('সাম্প্রতিক স্টক', 'Recent Stock')}</h2>
