@@ -9,9 +9,14 @@ import {
   Search, Settings, Home, List, Moon, Sun, Languages, 
   Eye, EyeOff, Edit2, X, ChevronRight, MoreVertical,
   ArrowUpRight, ArrowDownLeft, Box, ArrowRight, Menu,
-  Trash2, Download, Upload, RefreshCw, Share2
+  Trash2, Download, Upload, RefreshCw, Share2,
+  TrendingUp, PieChart as PieChartIcon, BarChart3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  LineChart, Line, PieChart, Pie, Cell 
+} from 'recharts';
 import { StockItem, Transaction } from './types';
 
 type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS';
@@ -73,6 +78,37 @@ export default function App() {
   const totalStockValue = useMemo(() => {
     return items.reduce((sum, item) => sum + (item.quantity * item.purchasePrice), 0);
   }, [items]);
+
+  const salesData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toDateString();
+    }).reverse();
+
+    return last7Days.map(date => {
+      const daySales = transactions
+        .filter(tr => new Date(tr.timestamp).toDateString() === date && (tr.type === 'REMOVE' || (tr.type === 'ADJUST' && tr.amount < 0)))
+        .reduce((sum, tr) => sum + Math.abs(tr.amount), 0);
+      
+      return {
+        name: new Date(date).toLocaleDateString(language === 'BN' ? 'bn-BD' : 'en-US', { weekday: 'short' }),
+        sales: daySales
+      };
+    });
+  }, [transactions, language]);
+
+  const stockDistributionData = useMemo(() => {
+    return items
+      .sort((a, b) => (b.quantity * b.purchasePrice) - (a.quantity * a.purchasePrice))
+      .slice(0, 5)
+      .map(item => ({
+        name: item.name,
+        value: item.quantity * item.purchasePrice
+      }));
+  }, [items]);
+
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   const handleAddProduct = () => {
     setError(null);
@@ -508,6 +544,99 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Sales Overview Chart */}
+                <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                      <TrendingUp size={18} />
+                    </div>
+                    <h3 className="font-bold">{t('সেল ওভারভিউ', 'Sales Overview')}</h3>
+                  </div>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={salesData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#1e293b' : '#f1f5f9'} />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b' }} 
+                        />
+                        <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b' }} 
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
+                            border: `1px solid ${isDarkMode ? '#1e293b' : '#e2e8f0'}`,
+                            borderRadius: '12px',
+                            fontSize: '12px'
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="sales" 
+                          stroke="#6366f1" 
+                          strokeWidth={3} 
+                          dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: isDarkMode ? '#0f172a' : '#ffffff' }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Stock Overview Chart */}
+                <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                      <PieChartIcon size={18} />
+                    </div>
+                    <h3 className="font-bold">{t('স্টক অভারভিউ', 'Stock Overview')}</h3>
+                  </div>
+                  <div className="h-64 w-full flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={stockDistributionData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {stockDistributionData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
+                            border: `1px solid ${isDarkMode ? '#1e293b' : '#e2e8f0'}`,
+                            borderRadius: '12px',
+                            fontSize: '12px'
+                          }}
+                          formatter={(value: number) => `₹${value.toLocaleString()}`}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-col gap-2 ml-4">
+                      {stockDistributionData.map((item, index) => (
+                        <div key={item.name} className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                          <span className="text-[10px] font-medium truncate max-w-[80px]">{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -786,7 +915,7 @@ export default function App() {
                   <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
                     <Package size={18} />
                   </div>
-                  <span className="font-bold">{t('মেনু', 'Menu')}</span>
+                  <span className="font-bold">{t('ড্যাশবোর্ড', 'Dashboard')}</span>
                 </div>
                 <button 
                   onClick={() => setIsSidebarOpen(false)}
