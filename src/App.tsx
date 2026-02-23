@@ -8,7 +8,8 @@ import {
   Plus, Minus, Package, History, AlertCircle, CheckCircle2, 
   Search, Settings, Home, List, Moon, Sun, Languages, 
   Eye, EyeOff, Edit2, X, ChevronRight, MoreVertical,
-  ArrowUpRight, ArrowDownLeft, Box, ArrowRight, Menu
+  ArrowUpRight, ArrowDownLeft, Box, ArrowRight, Menu,
+  Trash2, Download, Upload, RefreshCw, Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { StockItem, Transaction } from './types';
@@ -24,6 +25,7 @@ export default function App() {
   const [showPurchasePrice, setShowPurchasePrice] = useState(true);
   const [language, setLanguage] = useState<'BN' | 'EN'>('BN');
   const [searchTerm, setSearchTerm] = useState('');
+  const [allProductsSearchTerm, setAllProductsSearchTerm] = useState('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -60,6 +62,17 @@ export default function App() {
       item.boxNumber.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [items, searchTerm]);
+
+  const allProductsFilteredItems = useMemo(() => {
+    return items.filter(item => 
+      item.name.toLowerCase().includes(allProductsSearchTerm.toLowerCase()) ||
+      item.boxNumber.toLowerCase().includes(allProductsSearchTerm.toLowerCase())
+    );
+  }, [items, allProductsSearchTerm]);
+
+  const totalStockValue = useMemo(() => {
+    return items.reduce((sum, item) => sum + (item.quantity * item.purchasePrice), 0);
+  }, [items]);
 
   const handleAddProduct = () => {
     setError(null);
@@ -194,6 +207,83 @@ export default function App() {
     setSelectedItem(null);
   };
 
+  const handleDeleteItem = (id: string) => {
+    if (window.confirm(language === 'BN' ? 'আপনি কি নিশ্চিত যে আপনি এই পণ্যটি ডিলিট করতে চান?' : 'Are you sure you want to delete this item?')) {
+      setItems(items.filter(item => item.id !== id));
+      setTransactions(transactions.filter(tr => tr.itemId !== id));
+      setSuccess(language === 'BN' ? 'পণ্যটি ডিলিট করা হয়েছে' : 'Item deleted successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  const handleResetAll = () => {
+    if (window.confirm(language === 'BN' ? 'আপনি কি নিশ্চিত যে আপনি পুরো স্টক রিসেট করতে চান? এটি আর ফিরে পাওয়া যাবে না!' : 'Are you sure you want to reset all stock? This cannot be undone!')) {
+      setItems([]);
+      setTransactions([]);
+      setSuccess(language === 'BN' ? 'পুরো স্টক রিসেট করা হয়েছে' : 'All stock has been reset');
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
+  const handleExportData = () => {
+    const data = JSON.stringify({ items, transactions });
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `stock_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setSuccess(language === 'BN' ? 'ব্যাকআপ ফাইল ডাউনলোড হয়েছে' : 'Backup file downloaded');
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        if (data.items && Array.isArray(data.items)) {
+          setItems(data.items);
+          if (data.transactions && Array.isArray(data.transactions)) {
+            setTransactions(data.transactions);
+          }
+          setSuccess(language === 'BN' ? 'ডেটা সফলভাবে ইমপোর্ট করা হয়েছে' : 'Data imported successfully');
+        } else {
+          throw new Error('Invalid format');
+        }
+      } catch (err) {
+        setError(language === 'BN' ? 'ভুল ফাইল ফরম্যাট!' : 'Invalid file format!');
+        setTimeout(() => setError(null), 3000);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleShareApp = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Shop Stock Manager',
+          text: 'Check out this Stock Manager app!',
+          url: window.location.href,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(window.location.href);
+      setSuccess(language === 'BN' ? 'লিঙ্ক কপি করা হয়েছে' : 'Link copied to clipboard');
+      setTimeout(() => setSuccess(null), 3000);
+    }
+  };
+
   const t = (bn: string, en: string) => language === 'BN' ? bn : en;
 
   return (
@@ -311,7 +401,7 @@ export default function App() {
                   { label: t('মোট পণ্য', 'Total Items'), value: items.length, color: 'bg-blue-500' },
                   { label: t('স্টক কম', 'Low Stock'), value: items.filter(i => i.quantity < 5).length, color: 'bg-amber-500' },
                   { label: t('আজকের লেনদেন', 'Today Trans'), value: transactions.filter(tr => new Date(tr.timestamp).toDateString() === new Date().toDateString()).length, color: 'bg-emerald-500' },
-                  { label: t('বক্স সংখ্যা', 'Boxes'), value: new Set(items.map(i => i.boxNumber)).size, color: 'bg-purple-500' },
+                  { label: t('স্টক ভ্যালু', 'Stock Value'), value: `₹${totalStockValue.toLocaleString()}`, color: 'bg-purple-500' },
                 ].map((stat, i) => (
                   <div key={i} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
                     <p className="text-xs text-slate-500 font-medium mb-1">{stat.label}</p>
@@ -481,6 +571,28 @@ export default function App() {
                 </button>
               </div>
 
+              {/* Dedicated Search Bar for All Products */}
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input 
+                  type="text"
+                  placeholder={t('পণ্য বা বক্স নম্বর দিয়ে খুঁজুন...', 'Search by name or box number...')}
+                  value={allProductsSearchTerm}
+                  onChange={(e) => setAllProductsSearchTerm(e.target.value)}
+                  className={`w-full pl-12 pr-4 py-4 rounded-2xl border outline-none transition-all focus:ring-2 focus:ring-indigo-500/50 ${
+                    isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                  }`}
+                />
+                {allProductsSearchTerm && (
+                  <button 
+                    onClick={() => setAllProductsSearchTerm('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+
               <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-left border-collapse">
                   <thead className={isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}>
@@ -497,7 +609,7 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                    {filteredItems.map(item => (
+                    {allProductsFilteredItems.map(item => (
                       <tr 
                         key={item.id} 
                         onClick={() => setSelectedItem(item)}
@@ -544,6 +656,16 @@ export default function App() {
                               title={t('এডিট', 'Edit')}
                             >
                               <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteItem(item.id);
+                              }}
+                              className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-500 rounded-lg"
+                              title={t('ডিলিট', 'Delete')}
+                            >
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
@@ -599,6 +721,38 @@ export default function App() {
                     className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-bold"
                   >
                     {language === 'BN' ? 'ENGLISH' : 'বাংলা'}
+                  </button>
+                </div>
+
+                <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('ডেটা ম্যানেজমেন্ট', 'Data Management')}</p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={handleExportData}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all active:scale-95 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Download size={20} className="text-indigo-500" />
+                      <span className="text-xs font-bold">{t('এক্সপোর্ট', 'Export')}</span>
+                    </button>
+                    
+                    <label className={`flex flex-col items-center gap-2 p-4 rounded-2xl border cursor-pointer transition-all active:scale-95 ${
+                      isDarkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                    }`}>
+                      <Upload size={20} className="text-emerald-500" />
+                      <span className="text-xs font-bold">{t('ইমপোর্ট', 'Import')}</span>
+                      <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+                    </label>
+                  </div>
+
+                  <button 
+                    onClick={handleResetAll}
+                    className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-rose-200 dark:border-rose-900/30 bg-rose-50 dark:bg-rose-900/10 text-rose-600 font-bold transition-all active:scale-95 hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                  >
+                    <RefreshCw size={20} />
+                    {t('সব রিসেট করুন', 'Reset All Data')}
                   </button>
                 </div>
               </div>
@@ -662,6 +816,14 @@ export default function App() {
                   }`}
                 >
                   <Settings size={20} /> {t('সেটিংস', 'Settings')}
+                </button>
+                <button
+                  onClick={handleShareApp}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                    isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <Share2 size={20} /> {t('শেয়ার করুন', 'Share App')}
                 </button>
 
                 <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
