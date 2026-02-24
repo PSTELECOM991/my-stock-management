@@ -28,6 +28,7 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentView, setCurrentView] = useState<View>('HOME');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [showPurchasePrice, setShowPurchasePrice] = useState(true);
   const [language, setLanguage] = useState<'BN' | 'EN'>('BN');
   const [searchTerm, setSearchTerm] = useState('');
@@ -348,6 +349,109 @@ export default function App() {
   };
 
   const t = (bn: string, en: string) => language === 'BN' ? bn : en;
+
+  if (showWelcome) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="min-h-screen bg-slate-950 flex flex-col items-center justify-between p-8 relative overflow-hidden font-sans"
+      >
+        {/* Background Elements */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
+          
+          {/* Mobile Grid Pattern */}
+          <div className="absolute inset-0 opacity-[0.03] grid grid-cols-4 sm:grid-cols-8 gap-8 p-8">
+            {Array.from({ length: 32 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-center">
+                <Box size={40} className="text-white transform rotate-12" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Section */}
+        <div className="z-10 text-center mt-16 sm:mt-24">
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          >
+            <h1 className="text-4xl sm:text-6xl font-black text-white mb-4 tracking-tight">
+              Welcome to <span className="text-indigo-500">PS Telecom</span>
+            </h1>
+            <div className="inline-block px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
+              <p className="text-indigo-400 text-xs sm:text-sm font-bold uppercase tracking-[0.3em]">
+                Combo Management System
+              </p>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Logo Section */}
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0, rotate: -5 }}
+          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          transition={{ delay: 0.3, type: 'spring', stiffness: 100 }}
+          className="z-10 relative group"
+        >
+          <div className="w-56 h-56 sm:w-72 sm:h-72 bg-white/5 backdrop-blur-2xl rounded-[3.5rem] border border-white/10 flex flex-col items-center justify-center shadow-[0_0_50px_rgba(79,70,229,0.2)] transition-all duration-500 group-hover:shadow-[0_0_80px_rgba(79,70,229,0.4)] group-hover:border-white/20">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[3.5rem]" />
+            
+            <div className="relative flex flex-col items-center gap-6">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-500/40 transform group-hover:scale-110 transition-transform duration-500">
+                <Package size={64} className="sm:size-80" />
+              </div>
+              <div className="text-center">
+                <span className="text-white font-black text-3xl sm:text-4xl tracking-tighter block">PS TELECOM</span>
+                <div className="h-1 w-12 bg-indigo-500 mx-auto mt-2 rounded-full" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Decorative Rings */}
+          <div className="absolute -inset-4 border border-indigo-500/10 rounded-[4rem] animate-spin-slow pointer-events-none" style={{ animationDuration: '15s' }} />
+          <div className="absolute -inset-8 border border-emerald-500/5 rounded-[4.5rem] animate-spin-slow pointer-events-none" style={{ animationDuration: '20s', animationDirection: 'reverse' }} />
+        </motion.div>
+
+        {/* Bottom Section - Action Button */}
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="z-10 mb-16 flex flex-col items-center gap-6"
+        >
+          <button 
+            onClick={() => setShowWelcome(false)}
+            className="group relative w-24 h-24 flex items-center justify-center outline-none"
+          >
+            {/* Pulsing Backgrounds */}
+            <div className="absolute inset-0 bg-indigo-600 rounded-full animate-ping opacity-20" />
+            <div className="absolute inset-0 bg-indigo-600 rounded-full scale-125 opacity-5 group-hover:scale-150 transition-transform duration-500" />
+            
+            {/* Main Button Circle */}
+            <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_0_30px_rgba(79,70,229,0.5)] group-hover:bg-indigo-500 group-hover:scale-110 transition-all duration-300 active:scale-90">
+              <ArrowRight size={40} className="group-hover:translate-x-1.5 transition-transform duration-300" />
+            </div>
+          </button>
+          
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.4em] animate-pulse">
+              Tap to Enter
+            </p>
+            <div className="flex gap-1">
+              <div className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+              <div className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+              <div className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
