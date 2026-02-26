@@ -19,6 +19,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
 import { StockItem, Transaction } from './types';
+import { supabase } from './supabaseClient';
 
 type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS';
 
@@ -58,6 +59,60 @@ export default function App() {
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('items')
+          .select('*')
+          .order('last_updated', { ascending: false });
+
+        if (itemsError) throw itemsError;
+
+        const { data: transData, error: transError } = await supabase
+          .from('transactions')
+          .select('*')
+          .order('timestamp', { ascending: false });
+
+        if (transError) throw transError;
+
+        if (itemsData) {
+          setItems(itemsData.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            purchasePrice: item.purchase_price,
+            sellingPrice: item.selling_price,
+            boxNumber: item.box_number,
+            createdAt: new Date(item.created_at),
+            lastUpdated: new Date(item.last_updated)
+          })));
+        }
+
+        if (transData) {
+          setTransactions(transData.map(tr => ({
+            id: tr.id,
+            itemId: tr.item_id,
+            itemName: tr.item_name,
+            type: tr.type as any,
+            amount: tr.amount,
+            timestamp: new Date(tr.timestamp)
+          })));
+        }
+      } catch (err: any) {
+        console.error('Error fetching data:', err.message);
+        // Fallback to local storage or empty state if needed
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   // Dark Mode Effect
   useEffect(() => {
@@ -138,80 +193,139 @@ export default function App() {
 
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     setError(null);
     if (!formData.name || !formData.quantity || !formData.purchasePrice || !formData.sellingPrice) {
       setError(language === 'BN' ? 'সবগুলো ঘর পূরণ করুন' : 'Please fill all fields');
       return;
     }
 
-    const newItem: StockItem = {
-      id: crypto.randomUUID(),
+    const newItemId = crypto.randomUUID();
+    const newItem = {
+      id: newItemId,
       name: formData.name,
       quantity: parseInt(formData.quantity),
-      purchasePrice: parseFloat(formData.purchasePrice),
-      sellingPrice: parseFloat(formData.sellingPrice),
-      boxNumber: formData.boxNumber || 'N/A',
-      createdAt: new Date(),
-      lastUpdated: new Date()
+      purchase_price: parseFloat(formData.purchasePrice),
+      selling_price: parseFloat(formData.sellingPrice),
+      box_number: formData.boxNumber || 'N/A',
+      created_at: new Date().toISOString(),
+      last_updated: new Date().toISOString()
     };
 
-    setItems([newItem, ...items]);
-    
-    const newTransaction: Transaction = {
-      id: crypto.randomUUID(),
-      itemId: newItem.id,
-      itemName: newItem.name,
-      type: 'ADD',
-      amount: newItem.quantity,
-      timestamp: new Date()
-    };
-    setTransactions([newTransaction, ...transactions]);
+    try {
+      const { error: itemError } = await supabase.from('items').insert([newItem]);
+      if (itemError) throw itemError;
 
-    setFormData({ name: '', quantity: '', purchasePrice: '', sellingPrice: '', boxNumber: '' });
-    setShowAddModal(false);
-    setSuccess(language === 'BN' ? 'পণ্য যোগ করা হয়েছে' : 'Product added successfully');
-    setTimeout(() => setSuccess(null), 3000);
+      const newTransaction = {
+        id: crypto.randomUUID(),
+        item_id: newItemId,
+        item_name: formData.name,
+        type: 'ADD',
+        amount: parseInt(formData.quantity),
+        timestamp: new Date().toISOString()
+      };
+
+      const { error: transError } = await supabase.from('transactions').insert([newTransaction]);
+      if (transError) throw transError;
+
+      // Update local state
+      setItems([{
+        id: newItem.id,
+        name: newItem.name,
+        quantity: newItem.quantity,
+        purchasePrice: newItem.purchase_price,
+        sellingPrice: newItem.selling_price,
+        boxNumber: newItem.box_number,
+        createdAt: new Date(newItem.created_at),
+        lastUpdated: new Date(newItem.last_updated)
+      }, ...items]);
+
+      setTransactions([{
+        id: newTransaction.id,
+        itemId: newTransaction.item_id,
+        itemName: newTransaction.item_name,
+        type: 'ADD',
+        amount: newTransaction.amount,
+        timestamp: new Date(newTransaction.timestamp)
+      }, ...transactions]);
+
+      setFormData({ name: '', quantity: '', purchasePrice: '', sellingPrice: '', boxNumber: '' });
+      setShowAddModal(false);
+      setSuccess(language === 'BN' ? 'পণ্য যোগ করা হয়েছে' : 'Product added successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
 
-  const handleUpdateProduct = () => {
+  const handleUpdateProduct = async () => {
     if (!editingItem) return;
     setError(null);
 
-    const updatedItems = items.map(item => {
-      if (item.id === editingItem.id) {
-        return {
-          ...item,
-          name: formData.name,
-          quantity: parseInt(formData.quantity),
-          purchasePrice: parseFloat(formData.purchasePrice),
-          sellingPrice: parseFloat(formData.sellingPrice),
-          boxNumber: formData.boxNumber,
-          lastUpdated: new Date()
-        };
-      }
-      return item;
-    });
-
-    setItems(updatedItems);
-    
-    const newTransaction: Transaction = {
-      id: crypto.randomUUID(),
-      itemId: editingItem.id,
-      itemName: formData.name,
-      type: 'EDIT',
-      amount: parseInt(formData.quantity),
-      timestamp: new Date()
+    const updatedData = {
+      name: formData.name,
+      quantity: parseInt(formData.quantity),
+      purchase_price: parseFloat(formData.purchasePrice),
+      selling_price: parseFloat(formData.sellingPrice),
+      box_number: formData.boxNumber,
+      last_updated: new Date().toISOString()
     };
-    setTransactions([newTransaction, ...transactions]);
 
-    setEditingItem(null);
-    setFormData({ name: '', quantity: '', purchasePrice: '', sellingPrice: '', boxNumber: '' });
-    setSuccess(language === 'BN' ? 'পণ্য আপডেট করা হয়েছে' : 'Product updated successfully');
-    setTimeout(() => setSuccess(null), 3000);
+    try {
+      const { error: itemError } = await supabase
+        .from('items')
+        .update(updatedData)
+        .eq('id', editingItem.id);
+
+      if (itemError) throw itemError;
+
+      const newTransaction = {
+        id: crypto.randomUUID(),
+        item_id: editingItem.id,
+        item_name: formData.name,
+        type: 'EDIT',
+        amount: parseInt(formData.quantity),
+        timestamp: new Date().toISOString()
+      };
+
+      const { error: transError } = await supabase.from('transactions').insert([newTransaction]);
+      if (transError) throw transError;
+
+      // Update local state
+      setItems(items.map(item => {
+        if (item.id === editingItem.id) {
+          return {
+            ...item,
+            name: updatedData.name,
+            quantity: updatedData.quantity,
+            purchasePrice: updatedData.purchase_price,
+            sellingPrice: updatedData.selling_price,
+            boxNumber: updatedData.box_number,
+            lastUpdated: new Date(updatedData.last_updated)
+          };
+        }
+        return item;
+      }));
+
+      setTransactions([{
+        id: newTransaction.id,
+        itemId: newTransaction.item_id,
+        itemName: newTransaction.item_name,
+        type: 'EDIT',
+        amount: newTransaction.amount,
+        timestamp: new Date(newTransaction.timestamp)
+      }, ...transactions]);
+
+      setEditingItem(null);
+      setFormData({ name: '', quantity: '', purchasePrice: '', sellingPrice: '', boxNumber: '' });
+      setSuccess(language === 'BN' ? 'পণ্য আপডেট করা হয়েছে' : 'Product updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
 
-  const handleQuickAdjustment = (item: StockItem, type: 'IN' | 'OUT', customAmount?: number) => {
+  const handleQuickAdjustment = async (item: StockItem, type: 'IN' | 'OUT', customAmount?: number) => {
     const amount = customAmount || parseInt(adjustmentAmount);
     if (isNaN(amount) || amount <= 0) {
       setError(language === 'BN' ? 'সঠিক সংখ্যা দিন' : 'Enter valid number');
@@ -223,40 +337,55 @@ export default function App() {
       return;
     }
 
-    const updatedItems = items.map(i => {
-      if (i.id === item.id) {
-        return {
-          ...i,
-          quantity: type === 'IN' ? i.quantity + amount : i.quantity - amount,
-          lastUpdated: new Date()
-        };
+    const newQuantity = type === 'IN' ? item.quantity + amount : item.quantity - amount;
+    const lastUpdated = new Date().toISOString();
+
+    try {
+      const { error: itemError } = await supabase
+        .from('items')
+        .update({ quantity: newQuantity, last_updated: lastUpdated })
+        .eq('id', item.id);
+
+      if (itemError) throw itemError;
+
+      const newTransaction = {
+        id: crypto.randomUUID(),
+        item_id: item.id,
+        item_name: item.name,
+        type,
+        amount,
+        timestamp: new Date().toISOString()
+      };
+
+      const { error: transError } = await supabase.from('transactions').insert([newTransaction]);
+      if (transError) throw transError;
+
+      // Update local state
+      setItems(items.map(i => {
+        if (i.id === item.id) {
+          return { ...i, quantity: newQuantity, lastUpdated: new Date(lastUpdated) };
+        }
+        return i;
+      }));
+
+      setTransactions([{
+        id: newTransaction.id,
+        itemId: newTransaction.item_id,
+        itemName: newTransaction.item_name,
+        type,
+        amount: newTransaction.amount,
+        timestamp: new Date(newTransaction.timestamp)
+      }, ...transactions]);
+
+      if (selectedItem?.id === item.id) {
+        setSelectedItem({ ...item, quantity: newQuantity, lastUpdated: new Date(lastUpdated) });
       }
-      return i;
-    });
 
-    setItems(updatedItems);
-    
-    const newTransaction: Transaction = {
-      id: crypto.randomUUID(),
-      itemId: item.id,
-      itemName: item.name,
-      type,
-      amount,
-      timestamp: new Date()
-    };
-    setTransactions([newTransaction, ...transactions]);
-
-    // Update selected item view only if it's already open
-    if (selectedItem?.id === item.id) {
-      setSelectedItem({
-        ...item,
-        quantity: type === 'IN' ? item.quantity + amount : item.quantity - amount,
-        lastUpdated: new Date()
-      });
+      setSuccess(language === 'BN' ? 'স্টক সমন্বয় সফল হয়েছে' : 'Stock adjustment successful');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.message);
     }
-
-    setSuccess(language === 'BN' ? 'স্টক সমন্বয় সফল হয়েছে' : 'Stock adjustment successful');
-    setTimeout(() => setSuccess(null), 3000);
   };
 
   const startEditing = (item: StockItem) => {
@@ -271,21 +400,41 @@ export default function App() {
     setSelectedItem(null);
   };
 
-  const handleDeleteItem = (id: string) => {
+  const handleDeleteItem = async (id: string) => {
     if (window.confirm(language === 'BN' ? 'আপনি কি নিশ্চিত যে আপনি এই পণ্যটি ডিলিট করতে চান?' : 'Are you sure you want to delete this item?')) {
-      setItems(items.filter(item => item.id !== id));
-      setTransactions(transactions.filter(tr => tr.itemId !== id));
-      setSuccess(language === 'BN' ? 'পণ্যটি ডিলিট করা হয়েছে' : 'Item deleted successfully');
-      setTimeout(() => setSuccess(null), 3000);
+      try {
+        const { error: transError } = await supabase.from('transactions').delete().eq('item_id', id);
+        if (transError) throw transError;
+
+        const { error: itemError } = await supabase.from('items').delete().eq('id', id);
+        if (itemError) throw itemError;
+
+        setItems(items.filter(item => item.id !== id));
+        setTransactions(transactions.filter(tr => tr.itemId !== id));
+        setSuccess(language === 'BN' ? 'পণ্যটি ডিলিট করা হয়েছে' : 'Item deleted successfully');
+        setTimeout(() => setSuccess(null), 3000);
+      } catch (err: any) {
+        setError(err.message);
+      }
     }
   };
 
-  const handleResetAll = () => {
+  const handleResetAll = async () => {
     if (window.confirm(language === 'BN' ? 'আপনি কি নিশ্চিত যে আপনি পুরো স্টক রিসেট করতে চান? এটি আর ফিরে পাওয়া যাবে না!' : 'Are you sure you want to reset all stock? This cannot be undone!')) {
-      setItems([]);
-      setTransactions([]);
-      setSuccess(language === 'BN' ? 'পুরো স্টক রিসেট করা হয়েছে' : 'All stock has been reset');
-      setTimeout(() => setSuccess(null), 3000);
+      try {
+        const { error: transError } = await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (transError) throw transError;
+
+        const { error: itemError } = await supabase.from('items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (itemError) throw itemError;
+
+        setItems([]);
+        setTransactions([]);
+        setSuccess(language === 'BN' ? 'পুরো স্টক রিসেট করা হয়েছে' : 'All stock has been reset');
+        setTimeout(() => setSuccess(null), 3000);
+      } catch (err: any) {
+        setError(err.message);
+      }
     }
   };
 
@@ -303,27 +452,65 @@ export default function App() {
     setTimeout(() => setSuccess(null), 3000);
   };
 
-  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const data = JSON.parse(content);
         if (data.items && Array.isArray(data.items)) {
-          setItems(data.items);
-          if (data.transactions && Array.isArray(data.transactions)) {
-            setTransactions(data.transactions);
+          setIsLoading(true);
+          
+          // Clear existing data in Supabase
+          await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          await supabase.from('items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+          // Prepare data for Supabase
+          const itemsToInsert = data.items.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            purchase_price: item.purchasePrice,
+            selling_price: item.sellingPrice,
+            box_number: item.boxNumber,
+            created_at: item.createdAt,
+            last_updated: item.lastUpdated
+          }));
+
+          const transToInsert = (data.transactions || []).map((tr: any) => ({
+            id: tr.id,
+            item_id: tr.itemId,
+            item_name: tr.itemName,
+            type: tr.type,
+            amount: tr.amount,
+            timestamp: tr.timestamp
+          }));
+
+          // Insert into Supabase
+          if (itemsToInsert.length > 0) {
+            const { error: itemError } = await supabase.from('items').insert(itemsToInsert);
+            if (itemError) throw itemError;
           }
+
+          if (transToInsert.length > 0) {
+            const { error: transError } = await supabase.from('transactions').insert(transToInsert);
+            if (transError) throw transError;
+          }
+
+          setItems(data.items);
+          setTransactions(data.transactions || []);
           setSuccess(language === 'BN' ? 'ডেটা সফলভাবে ইমপোর্ট করা হয়েছে' : 'Data imported successfully');
         } else {
           throw new Error('Invalid format');
         }
-      } catch (err) {
-        setError(language === 'BN' ? 'ভুল ফাইল ফরম্যাট!' : 'Invalid file format!');
+      } catch (err: any) {
+        setError(language === 'BN' ? `ভুল ফাইল ফরম্যাট! ${err.message}` : `Invalid file format! ${err.message}`);
         setTimeout(() => setError(null), 3000);
+      } finally {
+        setIsLoading(false);
       }
     };
     reader.readAsText(file);
@@ -349,6 +536,17 @@ export default function App() {
   };
 
   const t = (bn: string, en: string) => language === 'BN' ? bn : en;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8">
+        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-indigo-400 font-bold animate-pulse tracking-widest uppercase text-xs">
+          {t('ডেটা লোড হচ্ছে...', 'Loading Data...')}
+        </p>
+      </div>
+    );
+  }
 
   if (showWelcome) {
     return (
