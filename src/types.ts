@@ -13,7 +13,7 @@ export interface Transaction {
   id: string;
   itemId: string;
   itemName: string;
-  type: 'IN' | 'OUT' | 'ADD' | 'EDIT';
+  type: 'IN' | 'OUT' | 'ADD' | 'EDIT' | 'REMOVE' | 'ADJUST';
   amount: number;
   price?: number;
   timestamp: Date;

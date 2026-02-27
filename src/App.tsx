@@ -11,17 +11,19 @@ import {
   ArrowUpRight, ArrowDownLeft, Box, ArrowRight, Menu,
   Trash2, Download, Upload, RefreshCw, Share2,
   TrendingUp, PieChart as PieChartIcon, BarChart3, FileText,
-  Bell, Calendar, Share
+  Bell, Calendar, Share, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
+import Markdown from 'react-markdown';
+import { GoogleGenAI } from "@google/genai";
 import { StockItem, Transaction } from './types';
 import { supabase } from './supabaseClient';
 
-type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS';
+type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS' | 'AI_ANALYSIS';
 
 export default function App() {
   // State
@@ -69,6 +71,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -180,10 +184,10 @@ export default function App() {
 
   const reportData = useMemo(() => {
     if (reportType === 'SALES') {
-      return filteredTransactions.filter(tr => tr.type === 'REMOVE' || (tr.type === 'ADJUST' && tr.amount < 0));
+      return filteredTransactions.filter(tr => tr.type === 'REMOVE' || tr.type === 'OUT' || (tr.type === 'ADJUST' && tr.amount < 0));
     }
     if (reportType === 'PURCHASE') {
-      return filteredTransactions.filter(tr => tr.type === 'ADD' || (tr.type === 'ADJUST' && tr.amount > 0));
+      return filteredTransactions.filter(tr => tr.type === 'ADD' || tr.type === 'IN' || (tr.type === 'ADJUST' && tr.amount > 0));
     }
     return filteredTransactions;
   }, [filteredTransactions, reportType]);
@@ -197,7 +201,7 @@ export default function App() {
 
     return last7Days.map(date => {
       const daySales = transactions
-        .filter(tr => new Date(tr.timestamp).toDateString() === date && (tr.type === 'REMOVE' || (tr.type === 'ADJUST' && tr.amount < 0)))
+        .filter(tr => new Date(tr.timestamp).toDateString() === date && (tr.type === 'REMOVE' || tr.type === 'OUT' || (tr.type === 'ADJUST' && tr.amount < 0)))
         .reduce((sum, tr) => sum + Math.abs(tr.amount), 0);
       
       return {
@@ -563,6 +567,44 @@ export default function App() {
 
   const t = (bn: string, en: string) => language === 'BN' ? bn : en;
 
+  const handleAIAnalysis = async () => {
+    setIsAiLoading(true);
+    setAiAnalysis(null);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const model = "gemini-3-flash-preview";
+      
+      const stockSummary = items.map(i => `${i.name}: ${i.quantity} units (Box: ${i.boxNumber})`).join('\n');
+      const recentTransactions = transactions.slice(0, 20).map(t => `${t.timestamp}: ${t.type} ${t.amount} of ${t.itemName}`).join('\n');
+      
+      const prompt = `As a business analyst for "PS Telecom", analyze the following stock and transaction data. 
+      Provide insights in ${language === 'BN' ? 'Bengali' : 'English'}.
+      Focus on:
+      1. Low stock items that need urgent restock.
+      2. Sales trends based on recent transactions.
+      3. Suggestions for better inventory management.
+      4. Profitability insights if possible.
+      
+      Current Stock:
+      ${stockSummary}
+      
+      Recent Transactions:
+      ${recentTransactions}`;
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+      });
+
+      setAiAnalysis(response.text || "No analysis generated.");
+    } catch (err: any) {
+      console.error('AI Analysis Error:', err);
+      setError(language === 'BN' ? 'AI বিশ্লেষণ করতে সমস্যা হয়েছে' : 'Error generating AI analysis');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8">
@@ -906,6 +948,26 @@ export default function App() {
                 </button>
               </div>
 
+              {/* AI Analysis Card */}
+              <button 
+                onClick={() => setCurrentView('AI_ANALYSIS')}
+                className={`w-full p-6 rounded-3xl border flex items-center gap-6 transition-all active:scale-[0.98] group relative overflow-hidden ${
+                  isDarkMode ? 'bg-indigo-900/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-900/20' : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100'
+                }`}
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-500/10 transition-colors" />
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shrink-0 ${isDarkMode ? 'bg-indigo-500/20' : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'}`}>
+                  <Sparkles size={36} />
+                </div>
+                <div className="text-left">
+                  <span className="font-black text-2xl block leading-tight">{t('AI বিশ্লেষণ', 'AI Analysis')}</span>
+                  <p className="text-sm opacity-70 font-medium mt-1">{t('আপনার স্টকের স্মার্ট ইনসাইট পান', 'Get smart insights about your stock')}</p>
+                </div>
+                <div className="ml-auto w-10 h-10 rounded-full border border-indigo-500/20 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                  <ChevronRight size={20} />
+                </div>
+              </button>
+
               {/* Quick Actions */}
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">{t('সাম্প্রতিক স্টক', 'Recent Stock')}</h2>
@@ -1228,6 +1290,107 @@ export default function App() {
             </motion.div>
           )}
 
+          {currentView === 'AI_ANALYSIS' && (
+            <motion.div 
+              key="ai_analysis"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setCurrentView('HOME')}
+                    className={`p-2 rounded-xl transition-all ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
+                  >
+                    <ChevronRight size={24} className="rotate-180" />
+                  </button>
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Sparkles className="text-indigo-500" /> {t('AI বিশ্লেষণ', 'AI Analysis')}
+                  </h2>
+                </div>
+                <button 
+                  onClick={handleAIAnalysis}
+                  disabled={isAiLoading}
+                  className={`px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <RefreshCw size={18} className={isAiLoading ? 'animate-spin' : ''} />
+                  {t('পুনরায় বিশ্লেষণ', 'Re-analyze')}
+                </button>
+              </div>
+
+              <div className={`p-8 rounded-[2.5rem] border min-h-[400px] flex flex-col ${
+                isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/50'
+              }`}>
+                {!aiAnalysis && !isAiLoading ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="w-24 h-24 bg-indigo-500/10 text-indigo-500 rounded-3xl flex items-center justify-center animate-bounce">
+                      <Sparkles size={48} />
+                    </div>
+                    <div className="max-w-md">
+                      <h3 className="text-xl font-bold mb-2">{t('স্মার্ট ইনসাইট পান', 'Get Smart Insights')}</h3>
+                      <p className="text-slate-500 text-sm">
+                        {t(
+                          'AI আপনার স্টক এবং লেনদেন বিশ্লেষণ করে আপনাকে ব্যবসার উন্নতির জন্য পরামর্শ দেবে।',
+                          'AI will analyze your stock and transactions to give you suggestions for business improvement.'
+                        )}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleAIAnalysis}
+                      className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-500/30 active:scale-95 transition-all"
+                    >
+                      {t('বিশ্লেষণ শুরু করুন', 'Start Analysis')}
+                    </button>
+                  </div>
+                ) : isAiLoading ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="relative">
+                      <div className="w-24 h-24 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                      <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-500 animate-pulse" size={32} />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-lg font-bold animate-pulse">{t('AI আপনার ডেটা বিশ্লেষণ করছে...', 'AI is analyzing your data...')}</p>
+                      <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">{t('দয়া করে অপেক্ষা করুন', 'Please wait a moment')}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="prose prose-slate dark:prose-invert max-w-none">
+                    <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-10 h-10 bg-indigo-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <Sparkles size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold leading-none">{t('AI রিপোর্ট', 'AI Report')}</h3>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Generated by Gemini AI</p>
+                      </div>
+                    </div>
+                    <div className={`markdown-body ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      <Markdown>{aiAnalysis}</Markdown>
+                    </div>
+                    <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                      <button 
+                        onClick={() => {
+                          if (aiAnalysis) {
+                            navigator.clipboard.writeText(aiAnalysis);
+                            setSuccess(t('রিপোর্ট কপি করা হয়েছে', 'Report copied to clipboard'));
+                            setTimeout(() => setSuccess(null), 3000);
+                          }
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          isDarkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'
+                        }`}
+                      >
+                        <Share2 size={16} /> {t('শেয়ার করুন', 'Share Report')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {currentView === 'SETTINGS' && (
             <motion.div 
               key="settings"
@@ -1375,6 +1538,16 @@ export default function App() {
                   }`}
                 >
                   <Home size={20} /> {t('হোম', 'Home')}
+                </button>
+                <button
+                  onClick={() => { setCurrentView('AI_ANALYSIS'); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                    currentView === 'AI_ANALYSIS' 
+                    ? 'bg-indigo-600 text-white' 
+                    : isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <Sparkles size={20} /> {t('AI বিশ্লেষণ', 'AI Analysis')}
                 </button>
                 <button
                   onClick={() => { setCurrentView('SETTINGS'); setIsSidebarOpen(false); }}
@@ -1799,7 +1972,7 @@ export default function App() {
                             <p className={`text-xs font-bold ${tr.amount > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                               {tr.amount > 0 ? '+' : ''}{tr.amount}
                             </p>
-                            <p className="text-[10px] text-slate-400">₹{(Math.abs(tr.amount) * (tr.type === 'REMOVE' ? items.find(i => i.name === tr.itemName)?.sellingPrice || 0 : items.find(i => i.name === tr.itemName)?.purchasePrice || 0)).toLocaleString()}</p>
+                            <p className="text-[10px] text-slate-400">₹{(Math.abs(tr.amount) * ((tr.type === 'REMOVE' || tr.type === 'OUT') ? items.find(i => i.name === tr.itemName)?.sellingPrice || 0 : items.find(i => i.name === tr.itemName)?.purchasePrice || 0)).toLocaleString()}</p>
                           </div>
                         </div>
                       ))
