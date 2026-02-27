@@ -27,11 +27,20 @@ export default function App() {
   // State
   const [items, setItems] = useState<StockItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [currentView, setCurrentView] = useState<View>('HOME');
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [currentView, setCurrentView] = useState<View>(() => {
+    const saved = localStorage.getItem('currentView');
+    return (saved as View) || 'HOME';
+  });
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('isDarkMode') === 'true';
+  });
+  const [showWelcome, setShowWelcome] = useState(() => {
+    return localStorage.getItem('showWelcome') !== 'false';
+  });
   const [showPurchasePrice, setShowPurchasePrice] = useState(true);
-  const [language, setLanguage] = useState<'BN' | 'EN'>('BN');
+  const [language, setLanguage] = useState<'BN' | 'EN'>(() => {
+    return (localStorage.getItem('language') as 'BN' | 'EN') || 'BN';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [allProductsSearchTerm, setAllProductsSearchTerm] = useState('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
@@ -113,6 +122,23 @@ export default function App() {
 
     fetchData();
   }, []);
+
+  // Persistence Effects
+  useEffect(() => {
+    localStorage.setItem('currentView', currentView);
+  }, [currentView]);
+
+  useEffect(() => {
+    localStorage.setItem('showWelcome', showWelcome.toString());
+  }, [showWelcome]);
+
+  useEffect(() => {
+    localStorage.setItem('isDarkMode', isDarkMode.toString());
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('language', language);
+  }, [language]);
 
   // Dark Mode Effect
   useEffect(() => {
