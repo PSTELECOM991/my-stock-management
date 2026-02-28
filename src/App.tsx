@@ -23,7 +23,7 @@ import { GoogleGenAI } from "@google/genai";
 import { StockItem, Transaction } from './types';
 import { supabase } from './supabaseClient';
 
-type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS' | 'AI_ANALYSIS' | 'BACKUP';
+type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS' | 'AI_ANALYSIS' | 'BACKUP' | 'LOW_ITEMS';
 
 export default function App() {
   // State
@@ -73,6 +73,10 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [readNotifications, setReadNotifications] = useState<string[]>(() => {
+    const saved = localStorage.getItem('readNotifications');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -144,6 +148,10 @@ export default function App() {
     localStorage.setItem('language', language);
   }, [language]);
 
+  useEffect(() => {
+    localStorage.setItem('readNotifications', JSON.stringify(readNotifications));
+  }, [readNotifications]);
+
   // Dark Mode Effect
   useEffect(() => {
     if (isDarkMode) {
@@ -172,8 +180,8 @@ export default function App() {
   }, [items]);
 
   const lowStockAlerts = useMemo(() => {
-    return items.filter(item => item.quantity <= 2);
-  }, [items]);
+    return items.filter(item => item.quantity <= 2 && !readNotifications.includes(item.id));
+  }, [items, readNotifications]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tr => {
@@ -324,6 +332,10 @@ export default function App() {
       // Update local state
       setItems(items.map(item => {
         if (item.id === editingItem.id) {
+          // If restocked above 2, remove from readNotifications
+          if (updatedData.quantity > 2) {
+            setReadNotifications(prev => prev.filter(id => id !== editingItem.id));
+          }
           return {
             ...item,
             name: updatedData.name,
@@ -393,6 +405,10 @@ export default function App() {
       // Update local state
       setItems(items.map(i => {
         if (i.id === item.id) {
+          // If restocked above 2, remove from readNotifications
+          if (newQuantity > 2) {
+            setReadNotifications(prev => prev.filter(id => id !== item.id));
+          }
           return { ...i, quantity: newQuantity, lastUpdated: new Date(lastUpdated) };
         }
         return i;
@@ -852,7 +868,17 @@ export default function App() {
                     >
                       <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                         <h3 className="font-bold text-sm">{t('নোটিফিকেশন', 'Notifications')}</h3>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('স্টক এলার্ট', 'Stock Alerts')}</span>
+                        {lowStockAlerts.length > 0 && (
+                          <button 
+                            onClick={() => {
+                              const newRead = [...readNotifications, ...lowStockAlerts.map(i => i.id)];
+                              setReadNotifications(newRead);
+                            }}
+                            className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 uppercase tracking-widest transition-colors"
+                          >
+                            {t('সব মুছে ফেলুন', 'Clear All')}
+                          </button>
+                        )}
                       </div>
                       <div className="max-h-80 overflow-y-auto p-2 space-y-1">
                         {lowStockAlerts.length > 0 ? (
@@ -981,6 +1007,31 @@ export default function App() {
                 </div>
                 <div className="ml-auto w-10 h-10 rounded-full border border-indigo-500/20 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
                   <ChevronRight size={20} />
+                </div>
+              </button>
+
+              {/* Low Item Card */}
+              <button 
+                onClick={() => setCurrentView('LOW_ITEMS')}
+                className={`w-full p-6 rounded-3xl border flex items-center gap-6 transition-all active:scale-[0.98] group relative overflow-hidden ${
+                  isDarkMode ? 'bg-rose-900/10 border-rose-500/20 text-rose-400 hover:bg-rose-900/20' : 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100'
+                }`}
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-rose-500/10 transition-colors" />
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shrink-0 ${isDarkMode ? 'bg-rose-500/20' : 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'}`}>
+                  <AlertCircle size={36} />
+                </div>
+                <div className="text-left">
+                  <span className="font-black text-2xl block leading-tight">{t('লো আইটেম', 'Low Item')}</span>
+                  <p className="text-sm opacity-70 font-medium mt-1">{t('যেসব পণ্যের স্টক ফুরিয়ে আসছে', 'Items that are running out of stock')}</p>
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-500/30">
+                    {items.filter(i => i.quantity < 2).length}
+                  </span>
+                  <div className="w-10 h-10 rounded-full border border-rose-500/20 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all">
+                    <ChevronRight size={20} />
+                  </div>
                 </div>
               </button>
 
@@ -1136,6 +1187,119 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Low Stock List Section */}
+              <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                      <AlertCircle size={18} />
+                    </div>
+                    <h3 className="font-bold">{t('লো-স্টক লিস্ট', 'Low Stock List')}</h3>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500 bg-rose-500/10 px-2 py-1 rounded-lg">
+                    {items.filter(i => i.quantity < 2).length} {t('আইটেম', 'Items')}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {items.filter(i => i.quantity < 2).length > 0 ? (
+                    items.filter(i => i.quantity < 2).map(item => (
+                      <div 
+                        key={item.id}
+                        onClick={() => setSelectedItem(item)}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all hover:shadow-md ${
+                          isDarkMode ? 'bg-slate-800/50 border-slate-700 hover:border-rose-500/30' : 'bg-rose-50/30 border-rose-100 hover:border-rose-200'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-bold text-sm truncate pr-2">{item.name}</h4>
+                          <span className="shrink-0 px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                            {item.quantity} {t('বাকি', 'Left')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Box: {item.boxNumber}</span>
+                          <span className="font-bold text-rose-500">{t('স্টক বাড়ান', 'Restock Now')}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full py-8 text-center">
+                      <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Package size={24} />
+                      </div>
+                      <p className="text-sm text-slate-500 italic">{t('সব পণ্যের পর্যাপ্ত স্টক আছে', 'All items have sufficient stock')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {currentView === 'LOW_ITEMS' && (
+            <motion.div 
+              key="low-items"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <button 
+                  onClick={() => setCurrentView('HOME')}
+                  className={`p-2 rounded-xl transition-all ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
+                >
+                  <ChevronRight size={24} className="rotate-180" />
+                </button>
+                <h2 className="text-2xl font-bold">{t('লো আইটেম লিস্ট', 'Low Item List')}</h2>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {items.filter(i => i.quantity < 2).length > 0 ? (
+                  items.filter(i => i.quantity < 2).map(item => (
+                    <div 
+                      key={item.id}
+                      onClick={() => setSelectedItem(item)}
+                      className={`p-6 rounded-[2rem] border cursor-pointer transition-all hover:shadow-xl group ${
+                        isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-rose-500/30' : 'bg-white border-slate-200 hover:border-rose-200 shadow-lg shadow-slate-200/50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-rose-500/10 text-rose-500' : 'bg-rose-50 text-rose-600'}`}>
+                          <AlertCircle size={24} />
+                        </div>
+                        <span className="px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black shadow-lg shadow-rose-500/30">
+                          {item.quantity} {t('বাকি', 'Left')}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black truncate mb-1">{item.name}</h3>
+                      <div className="flex items-center justify-between text-sm text-slate-500">
+                        <span className="font-medium">Box: {item.boxNumber}</span>
+                        <span className="font-bold text-rose-500 flex items-center gap-1">
+                          {t('স্টক বাড়ান', 'Restock')} <ArrowUpRight size={14} />
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-20 text-center">
+                    <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                      <CheckCircle2 size={40} />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">{t('সব স্টক ঠিক আছে', 'Stock is Healthy')}</h3>
+                    <p className="text-slate-500 text-sm max-w-xs mx-auto">
+                      {t('বর্তমানে কোনো পণ্যের স্টক দুটোর নিচে নেই।', 'Currently no items have stock below 2 units.')}
+                    </p>
+                    <button 
+                      onClick={() => setCurrentView('HOME')}
+                      className="mt-8 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
+                    >
+                      {t('হোমে ফিরে যান', 'Back to Home')}
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -1637,6 +1801,16 @@ export default function App() {
                   }`}
                 >
                   <Sparkles size={20} /> {t('AI বিশ্লেষণ', 'AI Analysis')}
+                </button>
+                <button
+                  onClick={() => { setCurrentView('LOW_ITEMS'); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                    currentView === 'LOW_ITEMS' 
+                    ? 'bg-indigo-600 text-white' 
+                    : isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <AlertCircle size={20} /> {t('লো আইটেম', 'Low Item')}
                 </button>
                 <button
                   onClick={() => { setCurrentView('BACKUP'); setIsSidebarOpen(false); }}
