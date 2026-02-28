@@ -1027,7 +1027,7 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-500/30">
-                    {items.filter(i => i.quantity < 2).length}
+                    {items.filter(i => i.quantity <= 2).length}
                   </span>
                   <div className="w-10 h-10 rounded-full border border-rose-500/20 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all">
                     <ChevronRight size={20} />
@@ -1199,13 +1199,13 @@ export default function App() {
                     <h3 className="font-bold">{t('লো-স্টক লিস্ট', 'Low Stock List')}</h3>
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500 bg-rose-500/10 px-2 py-1 rounded-lg">
-                    {items.filter(i => i.quantity < 2).length} {t('আইটেম', 'Items')}
+                    {items.filter(i => i.quantity <= 2).length} {t('আইটেম', 'Items')}
                   </span>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {items.filter(i => i.quantity < 2).length > 0 ? (
-                    items.filter(i => i.quantity < 2).map(item => (
+                  {items.filter(i => i.quantity <= 2).length > 0 ? (
+                    items.filter(i => i.quantity <= 2).map(item => (
                       <div 
                         key={item.id}
                         onClick={() => setSelectedItem(item)}
@@ -1257,8 +1257,8 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {items.filter(i => i.quantity < 2).length > 0 ? (
-                  items.filter(i => i.quantity < 2).map(item => (
+                {items.filter(i => i.quantity <= 2).length > 0 ? (
+                  items.filter(i => i.quantity <= 2).map(item => (
                     <div 
                       key={item.id}
                       onClick={() => setSelectedItem(item)}
