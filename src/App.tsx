@@ -23,7 +23,7 @@ import { GoogleGenAI } from "@google/genai";
 import { StockItem, Transaction } from './types';
 import { supabase } from './supabaseClient';
 
-type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS' | 'AI_ANALYSIS';
+type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS' | 'AI_ANALYSIS' | 'BACKUP';
 
 export default function App() {
   // State
@@ -469,7 +469,15 @@ export default function App() {
   };
 
   const handleExportData = () => {
-    const data = JSON.stringify({ items, transactions });
+    const data = JSON.stringify({ 
+      items, 
+      transactions,
+      settings: {
+        isDarkMode,
+        language,
+        showPurchasePrice
+      }
+    });
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -532,6 +540,14 @@ export default function App() {
 
           setItems(data.items);
           setTransactions(data.transactions || []);
+          
+          // Restore settings if available
+          if (data.settings) {
+            if (data.settings.isDarkMode !== undefined) setIsDarkMode(data.settings.isDarkMode);
+            if (data.settings.language) setLanguage(data.settings.language);
+            if (data.settings.showPurchasePrice !== undefined) setShowPurchasePrice(data.settings.showPurchasePrice);
+          }
+
           setSuccess(language === 'BN' ? 'ডেটা সফলভাবে ইমপোর্ট করা হয়েছে' : 'Data imported successfully');
         } else {
           throw new Error('Invalid format');
@@ -1391,6 +1407,79 @@ export default function App() {
             </motion.div>
           )}
 
+          {currentView === 'BACKUP' && (
+            <motion.div 
+              key="backup"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <button 
+                  onClick={() => setCurrentView('HOME')}
+                  className={`p-2 rounded-xl transition-all ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
+                >
+                  <ChevronRight size={24} className="rotate-180" />
+                </button>
+                <h2 className="text-2xl font-bold">{t('ব্যাকআপ ও রিস্টোর', 'Backup & Restore')}</h2>
+              </div>
+
+              <div className={`p-8 rounded-[2.5rem] border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/50'}`}>
+                <div className="flex flex-col items-center text-center space-y-6">
+                  <div className="w-20 h-20 bg-indigo-500/10 text-indigo-500 rounded-3xl flex items-center justify-center">
+                    <Download size={40} />
+                  </div>
+                  <div className="max-w-md">
+                    <h3 className="text-xl font-bold mb-2">{t('আপনার ডেটা সুরক্ষিত রাখুন', 'Keep Your Data Safe')}</h3>
+                    <p className="text-slate-500 text-sm">
+                      {t(
+                        'আপনার সমস্ত পণ্য এবং লেনদেনের ডেটা একটি ফাইল হিসেবে ডাউনলোড করে রাখুন। পরবর্তীতে প্রয়োজনে এটি রিস্টোর করতে পারবেন।',
+                        'Download all your products and transaction data as a file. You can restore it later if needed.'
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
+                    <button 
+                      onClick={handleExportData}
+                      className="flex flex-col items-center gap-4 p-8 rounded-3xl border-2 border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 transition-all active:scale-95 group"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-110 transition-transform">
+                        <Download size={24} />
+                      </div>
+                      <div className="text-center">
+                        <span className="font-bold block">{t('ব্যাকআপ নিন', 'Create Backup')}</span>
+                        <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">{t('ফাইল ডাউনলোড করুন', 'Download File')}</span>
+                      </div>
+                    </button>
+
+                    <label className="flex flex-col items-center gap-4 p-8 rounded-3xl border-2 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 cursor-pointer transition-all active:scale-95 group">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform">
+                        <Upload size={24} />
+                      </div>
+                      <div className="text-center">
+                        <span className="font-bold block">{t('রিস্টোর করুন', 'Restore Data')}</span>
+                        <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">{t('ফাইল আপলোড করুন', 'Upload File')}</span>
+                      </div>
+                      <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+                    </label>
+                  </div>
+
+                  <div className={`w-full p-4 rounded-2xl border flex items-start gap-3 ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                    <AlertCircle size={20} className="shrink-0 mt-0.5" />
+                    <p className="text-xs font-medium leading-relaxed">
+                      {t(
+                        'সতর্কতা: ডেটা রিস্টোর করলে বর্তমান সমস্ত ডেটা মুছে গিয়ে ব্যাকআপ ফাইলের ডেটা সেট হবে। রিস্টোর করার আগে বর্তমান ডেটার ব্যাকআপ নিয়ে রাখা ভালো।',
+                        'Warning: Restoring data will replace all current data with the backup file data. It is recommended to take a backup of current data before restoring.'
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {currentView === 'SETTINGS' && (
             <motion.div 
               key="settings"
@@ -1548,6 +1637,16 @@ export default function App() {
                   }`}
                 >
                   <Sparkles size={20} /> {t('AI বিশ্লেষণ', 'AI Analysis')}
+                </button>
+                <button
+                  onClick={() => { setCurrentView('BACKUP'); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                    currentView === 'BACKUP' 
+                    ? 'bg-indigo-600 text-white' 
+                    : isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <Download size={20} /> {t('ব্যাকআপ ও রিস্টোর', 'Backup & Restore')}
                 </button>
                 <button
                   onClick={() => { setCurrentView('SETTINGS'); setIsSidebarOpen(false); }}
