@@ -47,6 +47,11 @@ export default function App() {
   const [allProductsSearchTerm, setAllProductsSearchTerm] = useState('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [checkedItemIds, setCheckedItemIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('checkedItemIds');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [lowItemsTab, setLowItemsTab] = useState<'PENDING' | 'CHECKED'>('PENDING');
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -152,6 +157,10 @@ export default function App() {
     localStorage.setItem('readNotifications', JSON.stringify(readNotifications));
   }, [readNotifications]);
 
+  useEffect(() => {
+    localStorage.setItem('checkedItemIds', JSON.stringify(checkedItemIds));
+  }, [checkedItemIds]);
+
   // Dark Mode Effect
   useEffect(() => {
     if (isDarkMode) {
@@ -229,7 +238,19 @@ export default function App() {
       }));
   }, [items]);
 
+  const lowStockItems = useMemo(() => items.filter(i => i.quantity <= 2), [items]);
+  const pendingLowItems = useMemo(() => lowStockItems.filter(i => !checkedItemIds.includes(i.id)), [lowStockItems, checkedItemIds]);
+  const checkedLowItems = useMemo(() => lowStockItems.filter(i => checkedItemIds.includes(i.id)), [lowStockItems, checkedItemIds]);
+
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+  const toggleItemChecked = (itemId: string) => {
+    setCheckedItemIds(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId) 
+        : [...prev, itemId]
+    );
+  };
 
   const handleAddProduct = async () => {
     setError(null);
@@ -1256,23 +1277,81 @@ export default function App() {
                 <h2 className="text-xl font-bold">{t('লো আইটেম লিস্ট', 'Low Item List')}</h2>
               </div>
 
+              {/* Counters */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">{t('চেকিং বাকি', 'Pending')}</p>
+                  <p className="text-2xl font-black text-rose-500">{pendingLowItems.length}</p>
+                </div>
+                <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">{t('চেকিং সম্পন্ন', 'Checked')}</p>
+                  <p className="text-2xl font-black text-emerald-500">{checkedLowItems.length}</p>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className={`flex p-1 rounded-xl ${isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                <button 
+                  onClick={() => setLowItemsTab('PENDING')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                    lowItemsTab === 'PENDING' 
+                    ? 'bg-white dark:bg-slate-800 shadow-sm text-indigo-600' 
+                    : 'text-slate-500'
+                  }`}
+                >
+                  {t('বাকি আছে', 'Pending')} ({pendingLowItems.length})
+                </button>
+                <button 
+                  onClick={() => setLowItemsTab('CHECKED')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                    lowItemsTab === 'CHECKED' 
+                    ? 'bg-white dark:bg-slate-800 shadow-sm text-indigo-600' 
+                    : 'text-slate-500'
+                  }`}
+                >
+                  {t('সম্পন্ন', 'Checked')} ({checkedLowItems.length})
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {items.filter(i => i.quantity <= 2).length > 0 ? (
-                  items.filter(i => i.quantity <= 2).map(item => (
+                {(lowItemsTab === 'PENDING' ? pendingLowItems : checkedLowItems).length > 0 ? (
+                  (lowItemsTab === 'PENDING' ? pendingLowItems : checkedLowItems).map(item => (
                     <div 
                       key={item.id}
                       onClick={() => setSelectedItem(item)}
-                      className={`p-6 rounded-[2rem] border cursor-pointer transition-all hover:shadow-xl group ${
+                      className={`p-6 rounded-[2rem] border cursor-pointer transition-all hover:shadow-xl group relative ${
                         isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-rose-500/30' : 'bg-white border-slate-200 hover:border-rose-200 shadow-lg shadow-slate-200/50'
                       }`}
                     >
                       <div className="flex justify-between items-start mb-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-rose-500/10 text-rose-500' : 'bg-rose-50 text-rose-600'}`}>
-                          <AlertCircle size={24} />
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${
+                          lowItemsTab === 'PENDING' 
+                          ? (isDarkMode ? 'bg-rose-500/10 text-rose-500' : 'bg-rose-50 text-rose-600')
+                          : (isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600')
+                        }`}>
+                          {lowItemsTab === 'PENDING' ? <AlertCircle size={24} /> : <CheckCircle2 size={24} />}
                         </div>
-                        <span className="px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black shadow-lg shadow-rose-500/30">
-                          {item.quantity} {t('বাকি', 'Left')}
-                        </span>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`px-3 py-1 rounded-full text-white text-xs font-black shadow-lg ${
+                            lowItemsTab === 'PENDING' ? 'bg-rose-500 shadow-rose-500/30' : 'bg-emerald-500 shadow-emerald-500/30'
+                          }`}>
+                            {item.quantity} {t('বাকি', 'Left')}
+                          </span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleItemChecked(item.id);
+                            }}
+                            className={`p-2 rounded-xl transition-all ${
+                              lowItemsTab === 'PENDING'
+                              ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                              : 'bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white'
+                            }`}
+                            title={lowItemsTab === 'PENDING' ? t('চেক করুন', 'Mark as Checked') : t('আনচেক করুন', 'Mark as Pending')}
+                          >
+                            {lowItemsTab === 'PENDING' ? <CheckCircle2 size={18} /> : <RefreshCw size={18} />}
+                          </button>
+                        </div>
                       </div>
                       <h3 className="text-base font-black truncate mb-1">{item.name}</h3>
                       <div className="flex items-center justify-between text-xs text-slate-500">
@@ -1285,19 +1364,29 @@ export default function App() {
                   ))
                 ) : (
                   <div className="col-span-full py-20 text-center">
-                    <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
-                      <CheckCircle2 size={40} />
+                    <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 ${
+                      lowItemsTab === 'PENDING' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-500/10 text-slate-500'
+                    }`}>
+                      {lowItemsTab === 'PENDING' ? <CheckCircle2 size={40} /> : <AlertCircle size={40} />}
                     </div>
-                    <h3 className="text-lg font-bold mb-2">{t('সব স্টক ঠিক আছে', 'Stock is Healthy')}</h3>
+                    <h3 className="text-lg font-bold mb-2">
+                      {lowItemsTab === 'PENDING' 
+                        ? t('সব স্টক ঠিক আছে', 'Stock is Healthy') 
+                        : t('কোনো আইটেম চেক করা হয়নি', 'No Checked Items')}
+                    </h3>
                     <p className="text-slate-500 text-xs max-w-xs mx-auto">
-                      {t('বর্তমানে কোনো পণ্যের স্টক দুটোর নিচে নেই।', 'Currently no items have stock below 2 units.')}
+                      {lowItemsTab === 'PENDING'
+                        ? t('বর্তমানে কোনো পণ্যের স্টক দুটোর নিচে নেই।', 'Currently no items have stock below 2 units.')
+                        : t('চেক করা আইটেমগুলো এখানে দেখা যাবে।', 'Checked items will appear here.')}
                     </p>
-                    <button 
-                      onClick={() => setCurrentView('HOME')}
-                      className="mt-8 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
-                    >
-                      {t('হোমে ফিরে যান', 'Back to Home')}
-                    </button>
+                    {lowItemsTab === 'PENDING' && (
+                      <button 
+                        onClick={() => setCurrentView('HOME')}
+                        className="mt-8 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
+                      >
+                        {t('হোমে ফিরে যান', 'Back to Home')}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
