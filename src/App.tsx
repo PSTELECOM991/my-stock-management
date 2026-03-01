@@ -947,7 +947,7 @@ export default function App() {
                       <span className={stat.color}>{stat.icon}</span>
                       <p className="text-xs text-slate-500 font-medium">{stat.label}</p>
                     </div>
-                    <p className="text-2xl font-bold">{stat.value}</p>
+                    <p className="text-xl font-bold">{stat.value}</p>
                   </div>
                 ))}
               </div>
@@ -964,7 +964,7 @@ export default function App() {
                     <ArrowUpRight size={32} />
                   </div>
                   <div className="text-center">
-                    <span className="font-black text-xl block leading-tight">{t('স্টক ইন', 'Stock In')}</span>
+                    <span className="font-black text-lg block leading-tight">{t('স্টক ইন', 'Stock In')}</span>
                     <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">{t('পণ্য যোগ করুন', 'Add Stock')}</span>
                   </div>
                 </button>
@@ -984,7 +984,7 @@ export default function App() {
                     <ArrowDownLeft size={32} />
                   </div>
                   <div className="text-center">
-                    <span className="font-black text-xl block leading-tight">{t('স্টক আউট', 'Stock Out')}</span>
+                    <span className="font-black text-lg block leading-tight">{t('স্টক আউট', 'Stock Out')}</span>
                     <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">{t('পণ্য কমান', 'Reduce Stock')}</span>
                   </div>
                 </button>
@@ -1002,8 +1002,8 @@ export default function App() {
                   <Sparkles size={36} />
                 </div>
                 <div className="text-left">
-                  <span className="font-black text-2xl block leading-tight">{t('AI বিশ্লেষণ', 'AI Analysis')}</span>
-                  <p className="text-sm opacity-70 font-medium mt-1">{t('আপনার স্টকের স্মার্ট ইনসাইট পান', 'Get smart insights about your stock')}</p>
+                  <span className="font-black text-xl block leading-tight">{t('AI বিশ্লেষণ', 'AI Analysis')}</span>
+                  <p className="text-xs opacity-70 font-medium mt-1">{t('আপনার স্টকের স্মার্ট ইনসাইট পান', 'Get smart insights about your stock')}</p>
                 </div>
                 <div className="ml-auto w-10 h-10 rounded-full border border-indigo-500/20 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
                   <ChevronRight size={20} />
@@ -1022,8 +1022,8 @@ export default function App() {
                   <AlertCircle size={36} />
                 </div>
                 <div className="text-left">
-                  <span className="font-black text-2xl block leading-tight">{t('লো আইটেম', 'Low Item')}</span>
-                  <p className="text-sm opacity-70 font-medium mt-1">{t('যেসব পণ্যের স্টক ফুরিয়ে আসছে', 'Items that are running out of stock')}</p>
+                  <span className="font-black text-xl block leading-tight">{t('লো আইটেম', 'Low Item')}</span>
+                  <p className="text-xs opacity-70 font-medium mt-1">{t('যেসব পণ্যের স্টক ফুরিয়ে আসছে', 'Items that are running out of stock')}</p>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-500/30">
@@ -1037,7 +1037,7 @@ export default function App() {
 
               {/* Quick Actions */}
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">{t('সাম্প্রতিক স্টক', 'Recent Stock')}</h2>
+                <h2 className="text-lg font-bold">{t('সাম্প্রতিক স্টক', 'Recent Stock')}</h2>
                 <button 
                   onClick={() => setCurrentView('ALL_PRODUCTS')}
                   className="text-sm font-medium text-indigo-500 flex items-center gap-1"
@@ -1065,10 +1065,10 @@ export default function App() {
                         {item.quantity < 5 ? t('স্টক কম', 'Low') : t('ইন স্টক', 'In Stock')}
                       </span>
                     </div>
-                    <h3 className="font-bold truncate mb-1">{item.name}</h3>
+                    <h3 className="text-sm font-bold truncate mb-1">{item.name}</h3>
                     <div className="flex items-center justify-between">
-                      <p className="text-2xl font-black">{item.quantity}</p>
-                      <p className="text-xs text-slate-500">Box: {item.boxNumber}</p>
+                      <p className="text-xl font-black">{item.quantity}</p>
+                      <p className="text-[10px] text-slate-500">Box: {item.boxNumber}</p>
                     </div>
                     
                     {/* Instant Adjustment Buttons */}
@@ -1104,7 +1104,7 @@ export default function App() {
                     <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
                       <TrendingUp size={18} />
                     </div>
-                    <h3 className="font-bold">{t('সেল ওভারভিউ', 'Sales Overview')}</h3>
+                    <h3 className="text-sm font-bold">{t('সেল ওভারভিউ', 'Sales Overview')}</h3>
                   </div>
                   <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1148,7 +1148,7 @@ export default function App() {
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
                       <PieChartIcon size={18} />
                     </div>
-                    <h3 className="font-bold">{t('স্টক অভারভিউ', 'Stock Overview')}</h3>
+                    <h3 className="text-sm font-bold">{t('স্টক অভারভিউ', 'Stock Overview')}</h3>
                   </div>
                   <div className="h-64 w-full flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1196,7 +1196,7 @@ export default function App() {
                     <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center">
                       <AlertCircle size={18} />
                     </div>
-                    <h3 className="font-bold">{t('লো-স্টক লিস্ট', 'Low Stock List')}</h3>
+                    <h3 className="text-sm font-bold">{t('লো-স্টক লিস্ট', 'Low Stock List')}</h3>
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500 bg-rose-500/10 px-2 py-1 rounded-lg">
                     {items.filter(i => i.quantity <= 2).length} {t('আইটেম', 'Items')}
@@ -1230,7 +1230,7 @@ export default function App() {
                       <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
                         <Package size={24} />
                       </div>
-                      <p className="text-sm text-slate-500 italic">{t('সব পণ্যের পর্যাপ্ত স্টক আছে', 'All items have sufficient stock')}</p>
+                      <p className="text-xs text-slate-500 italic">{t('সব পণ্যের পর্যাপ্ত স্টক আছে', 'All items have sufficient stock')}</p>
                     </div>
                   )}
                 </div>
@@ -1253,7 +1253,7 @@ export default function App() {
                 >
                   <ChevronRight size={24} className="rotate-180" />
                 </button>
-                <h2 className="text-2xl font-bold">{t('লো আইটেম লিস্ট', 'Low Item List')}</h2>
+                <h2 className="text-xl font-bold">{t('লো আইটেম লিস্ট', 'Low Item List')}</h2>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1274,8 +1274,8 @@ export default function App() {
                           {item.quantity} {t('বাকি', 'Left')}
                         </span>
                       </div>
-                      <h3 className="text-lg font-black truncate mb-1">{item.name}</h3>
-                      <div className="flex items-center justify-between text-sm text-slate-500">
+                      <h3 className="text-base font-black truncate mb-1">{item.name}</h3>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
                         <span className="font-medium">Box: {item.boxNumber}</span>
                         <span className="font-bold text-rose-500 flex items-center gap-1">
                           {t('স্টক বাড়ান', 'Restock')} <ArrowUpRight size={14} />
@@ -1288,8 +1288,8 @@ export default function App() {
                     <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
                       <CheckCircle2 size={40} />
                     </div>
-                    <h3 className="text-xl font-bold mb-2">{t('সব স্টক ঠিক আছে', 'Stock is Healthy')}</h3>
-                    <p className="text-slate-500 text-sm max-w-xs mx-auto">
+                    <h3 className="text-lg font-bold mb-2">{t('সব স্টক ঠিক আছে', 'Stock is Healthy')}</h3>
+                    <p className="text-slate-500 text-xs max-w-xs mx-auto">
                       {t('বর্তমানে কোনো পণ্যের স্টক দুটোর নিচে নেই।', 'Currently no items have stock below 2 units.')}
                     </p>
                     <button 
@@ -1312,7 +1312,7 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-4"
             >
-              <h2 className="text-2xl font-bold mb-6">{t('লেনদেনের ইতিহাস', 'Transaction History')}</h2>
+              <h2 className="text-xl font-bold mb-6">{t('লেনদেনের ইতিহাস', 'Transaction History')}</h2>
               <div className="space-y-3">
                 {transactions.map(tr => (
                   <div key={tr.id} className={`p-4 rounded-2xl border flex items-center justify-between ${
@@ -1325,14 +1325,14 @@ export default function App() {
                         {tr.type === 'IN' || tr.type === 'ADD' ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
                       </div>
                       <div>
-                        <p className="font-bold">{tr.itemName}</p>
+                        <p className="text-sm font-bold">{tr.itemName}</p>
                         <p className="text-xs text-slate-500">
                           {new Date(tr.timestamp).toLocaleString(language === 'BN' ? 'bn-BD' : 'en-US')}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-bold ${tr.type === 'IN' || tr.type === 'ADD' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      <p className={`text-sm font-bold ${tr.type === 'IN' || tr.type === 'ADD' ? 'text-emerald-500' : 'text-rose-500'}`}>
                         {tr.type === 'IN' || tr.type === 'ADD' ? '+' : '-'}{tr.amount}
                       </p>
                       <p className="text-[10px] uppercase font-bold text-slate-400">{tr.type}</p>
@@ -1352,7 +1352,7 @@ export default function App() {
               className="space-y-6"
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">{t('সব পণ্য', 'All Products')}</h2>
+                <h2 className="text-xl font-bold">{t('সব পণ্য', 'All Products')}</h2>
                 <button 
                   onClick={() => setShowPurchasePrice(!showPurchasePrice)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -1390,15 +1390,15 @@ export default function App() {
                 <table className="w-full text-left border-collapse">
                   <thead className={isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}>
                     <tr>
-                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('নাম', 'Name')}</th>
-                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('পরিমাণ', 'Qty')}</th>
-                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('বক্স', 'Box')}</th>
-                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('তারিখ', 'Date')}</th>
+                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('নাম', 'Name')}</th>
+                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('পরিমাণ', 'Qty')}</th>
+                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('বক্স', 'Box')}</th>
+                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('তারিখ', 'Date')}</th>
                       {showPurchasePrice && (
-                        <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('কেনা', 'Buy')}</th>
+                        <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('কেনা', 'Buy')}</th>
                       )}
-                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('বিক্রি', 'Sell')}</th>
-                      <th className="p-4 text-xs font-bold uppercase text-slate-500">{t('অ্যাকশন', 'Action')}</th>
+                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('বিক্রি', 'Sell')}</th>
+                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('অ্যাকশন', 'Action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -1408,7 +1408,7 @@ export default function App() {
                         onClick={() => setSelectedItem(item)}
                         className={`cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-slate-900' : 'hover:bg-slate-50'}`}
                       >
-                        <td className="p-4 font-bold">{item.name}</td>
+                        <td className="p-4 text-sm font-bold">{item.name}</td>
                         <td className="p-4">
                           <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
                             item.quantity < 5 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 dark:bg-slate-800'
@@ -1416,14 +1416,14 @@ export default function App() {
                             {item.quantity}
                           </span>
                         </td>
-                        <td className="p-4 text-sm text-slate-500">{item.boxNumber}</td>
+                        <td className="p-4 text-xs text-slate-500">{item.boxNumber}</td>
                         <td className="p-4 text-[10px] text-slate-500">
                           {new Date(item.createdAt).toLocaleDateString(language === 'BN' ? 'bn-BD' : 'en-US')}
                         </td>
                         {showPurchasePrice && (
-                          <td className="p-4 text-sm font-medium">₹{item.purchasePrice}</td>
+                          <td className="p-4 text-xs font-medium">₹{item.purchasePrice}</td>
                         )}
-                        <td className="p-4 text-sm font-bold text-emerald-500">₹{item.sellingPrice}</td>
+                        <td className="p-4 text-xs font-bold text-emerald-500">₹{item.sellingPrice}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-1">
                             <button 
