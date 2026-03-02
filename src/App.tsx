@@ -632,12 +632,12 @@ export default function App() {
     setAiAnalysis(null);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const model = "gemini-3-flash-preview";
+      const modelName = "gemini-3-flash-preview";
       
       const stockSummary = items.map(i => `${i.name}: ${i.quantity} units (Box: ${i.boxNumber})`).join('\n');
       const recentTransactions = transactions.slice(0, 20).map(t => `${t.timestamp}: ${t.type} ${t.amount} of ${t.itemName}`).join('\n');
       
-      const prompt = `As a business analyst for "PS Telecom", analyze the following stock and transaction data. 
+      const prompt = `Analyze the following stock and transaction data for "PS Telecom". 
       Provide insights in ${language === 'BN' ? 'Bengali' : 'English'}.
       Focus on:
       1. Low stock items that need urgent restock.
@@ -652,14 +652,22 @@ export default function App() {
       ${recentTransactions}`;
 
       const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
+        model: modelName,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: "You are a professional business analyst. Provide clear, actionable insights based on the data provided.",
+          temperature: 0.7,
+        },
       });
 
-      setAiAnalysis(response.text || "No analysis generated.");
+      if (response && response.text) {
+        setAiAnalysis(response.text);
+      } else {
+        setAiAnalysis(language === 'BN' ? "দুঃখিত, কোনো বিশ্লেষণ তৈরি করা সম্ভব হয়নি।" : "Sorry, no analysis could be generated.");
+      }
     } catch (err: any) {
       console.error('AI Analysis Error:', err);
-      setError(language === 'BN' ? 'AI বিশ্লেষণ করতে সমস্যা হয়েছে' : 'Error generating AI analysis');
+      setError(language === 'BN' ? 'AI বিশ্লেষণ করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।' : 'Error generating AI analysis. Please try again.');
     } finally {
       setIsAiLoading(false);
     }
