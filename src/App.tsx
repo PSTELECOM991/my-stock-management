@@ -259,6 +259,13 @@ export default function App() {
       return;
     }
 
+    // Check if product with same name already exists
+    const existingItem = items.find(i => i.name.toLowerCase().trim() === formData.name.toLowerCase().trim());
+    if (existingItem) {
+      setError(language === 'BN' ? 'এই নামে পণ্যটি ইতিমধ্যে যোগ করা আছে!' : 'Product with this name already exists!');
+      return;
+    }
+
     const newItemId = crypto.randomUUID();
     const newItem = {
       id: newItemId,
