@@ -103,7 +103,7 @@ export default function App() {
         if (transError) throw transError;
 
         if (itemsData) {
-          setItems(itemsData.map(item => ({
+          const mappedItems = itemsData.map(item => ({
             id: item.id,
             name: item.name,
             quantity: item.quantity,
@@ -112,29 +112,53 @@ export default function App() {
             boxNumber: item.box_number,
             createdAt: new Date(item.created_at),
             lastUpdated: new Date(item.last_updated)
-          })));
+          }));
+          setItems(mappedItems);
+          localStorage.setItem('cached_items', JSON.stringify(mappedItems));
         }
 
         if (transData) {
-          setTransactions(transData.map(tr => ({
+          const mappedTrans = transData.map(tr => ({
             id: tr.id,
             itemId: tr.item_id,
             itemName: tr.item_name,
             type: tr.type as any,
             amount: tr.amount,
             timestamp: new Date(tr.timestamp)
-          })));
+          }));
+          setTransactions(mappedTrans);
+          localStorage.setItem('cached_transactions', JSON.stringify(mappedTrans));
         }
       } catch (err: any) {
         console.error('Error fetching data:', err.message);
-        // Fallback to local storage or empty state if needed
+        setError(language === 'BN' ? 'ডেটাবেস সংযোগে সমস্যা হয়েছে। অফলাইন মোডে ডেটা দেখানো হচ্ছে।' : 'Database connection failed. Showing offline data.');
+        
+        // Fallback to local storage
+        const cachedItems = localStorage.getItem('cached_items');
+        const cachedTrans = localStorage.getItem('cached_transactions');
+        
+        if (cachedItems) {
+          setItems(JSON.parse(cachedItems).map((i: any) => ({
+            ...i,
+            createdAt: new Date(i.createdAt),
+            lastUpdated: new Date(i.lastUpdated)
+          })));
+        }
+        if (cachedTrans) {
+          setTransactions(JSON.parse(cachedTrans).map((t: any) => ({
+            ...t,
+            timestamp: new Date(t.timestamp)
+          })));
+        }
+        
+        setTimeout(() => setError(null), 5000);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [language]);
 
   // Persistence Effects
   useEffect(() => {
@@ -790,6 +814,52 @@ export default function App() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
+      {/* Global Error/Success Banners */}
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-4 left-4 right-4 z-[100] flex justify-center pointer-events-none"
+          >
+            <div className="bg-rose-500 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto border border-rose-400/30 backdrop-blur-xl">
+              <AlertCircle size={20} className="shrink-0" />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <p className="text-sm font-bold">{error}</p>
+                {error.includes('Database') && (
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="text-[10px] uppercase tracking-widest font-black bg-white/20 px-2 py-1 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-1"
+                  >
+                    <RefreshCw size={10} /> {t('আবার চেষ্টা করুন', 'Retry')}
+                  </button>
+                )}
+              </div>
+              <button onClick={() => setError(null)} className="p-1 hover:bg-white/20 rounded-lg transition-colors ml-auto">
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+        {success && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-4 left-4 right-4 z-[100] flex justify-center pointer-events-none"
+          >
+            <div className="bg-emerald-500 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto border border-emerald-400/30 backdrop-blur-xl">
+              <CheckCircle2 size={20} className="shrink-0" />
+              <p className="text-sm font-bold">{success}</p>
+              <button onClick={() => setSuccess(null)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Top Header */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
@@ -973,18 +1043,27 @@ export default function App() {
               {/* Stats Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: t('মোট পণ্য', 'Total Items'), value: items.length, color: 'text-blue-500', icon: <Package size={16} /> },
-                  { label: t('স্টক কম', 'Low Stock'), value: items.filter(i => i.quantity < 5).length, color: 'text-amber-500', icon: <AlertCircle size={16} /> },
-                  { label: t('আজকের লেনদেন', 'Today Trans'), value: transactions.filter(tr => new Date(tr.timestamp).toDateString() === new Date().toDateString()).length, color: 'text-emerald-500', icon: <History size={16} /> },
-                  { label: t('স্টক ভ্যালু', 'Stock Value'), value: `₹${totalStockValue.toLocaleString()}`, color: 'text-purple-500', icon: <TrendingUp size={16} /> },
+                  { label: t('মোট পণ্য', 'Total Items'), value: items.length, color: 'from-blue-500/20 to-blue-600/20', iconColor: 'text-blue-500', icon: <Package size={20} /> },
+                  { label: t('স্টক কম', 'Low Stock'), value: items.filter(i => i.quantity < 5).length, color: 'from-amber-500/20 to-amber-600/20', iconColor: 'text-amber-500', icon: <AlertCircle size={20} /> },
+                  { label: t('আজকের লেনদেন', 'Today Trans'), value: transactions.filter(tr => new Date(tr.timestamp).toDateString() === new Date().toDateString()).length, color: 'from-emerald-500/20 to-emerald-600/20', iconColor: 'text-emerald-500', icon: <History size={20} /> },
+                  { label: t('স্টক ভ্যালু', 'Stock Value'), value: `₹${totalStockValue.toLocaleString()}`, color: 'from-purple-500/20 to-purple-600/20', iconColor: 'text-purple-500', icon: <TrendingUp size={20} /> },
                 ].map((stat, i) => (
-                  <div key={i} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={stat.color}>{stat.icon}</span>
-                      <p className="text-xs text-slate-500 font-medium">{stat.label}</p>
+                  <motion.div 
+                    key={i} 
+                    whileHover={{ y: -4 }}
+                    className={`p-5 rounded-[2rem] border relative overflow-hidden group ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                  >
+                    <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${stat.color} blur-2xl opacity-50 group-hover:opacity-100 transition-opacity`} />
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-800' : 'bg-slate-50'} ${stat.iconColor}`}>
+                          {stat.icon}
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{stat.label}</p>
+                      </div>
+                      <p className="text-2xl font-black tracking-tight">{stat.value}</p>
                     </div>
-                    <p className="text-xl font-bold">{stat.value}</p>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
 
@@ -1084,51 +1163,66 @@ export default function App() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {items.slice(0, 6).map(item => (
-                  <div 
+                  <motion.div 
                     key={item.id}
+                    whileHover={{ y: -4 }}
                     onClick={() => setSelectedItem(item)}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all hover:shadow-lg ${
-                      isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-indigo-500/50' : 'bg-white border-slate-200 hover:border-indigo-200'
+                    className={`p-5 rounded-[2.5rem] border cursor-pointer transition-all hover:shadow-2xl group relative overflow-hidden ${
+                      isDarkMode ? 'bg-slate-900 border-slate-800 hover:border-indigo-500/50' : 'bg-white border-slate-200 hover:border-indigo-200 shadow-xl shadow-slate-200/20'
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-indigo-500">
-                        <Box size={20} />
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
+                    
+                    <div className="flex justify-between items-start mb-4 relative z-10">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-slate-800 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                        <Box size={24} />
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                        item.quantity < 5 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
+                      <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest shadow-sm ${
+                        item.quantity < 5 ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'
                       }`}>
                         {item.quantity < 5 ? t('স্টক কম', 'Low') : t('ইন স্টক', 'In Stock')}
                       </span>
                     </div>
-                    <h3 className="text-sm font-bold truncate mb-1">{item.name}</h3>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xl font-black">{item.quantity}</p>
-                      <p className="text-[10px] text-slate-500">Box: {item.boxNumber}</p>
+                    
+                    <div className="relative z-10 mb-4">
+                      <h3 className="text-base font-black truncate mb-1 group-hover:text-indigo-500 transition-colors">{item.name}</h3>
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-3xl font-black tracking-tighter">{item.quantity}</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Units</p>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-medium mt-1">Box Number: <span className="text-indigo-500 font-bold">{item.boxNumber}</span></p>
                     </div>
                     
                     {/* Instant Adjustment Buttons */}
-                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 relative z-10">
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
                           handleQuickAdjustment(item, 'IN', 1); 
                         }}
-                        className="flex-1 py-2 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1"
+                        className={`flex-1 py-3 rounded-2xl text-[10px] font-black transition-all flex items-center justify-center gap-2 active:scale-95 ${
+                          isDarkMode 
+                          ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white' 
+                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white hover:shadow-lg hover:shadow-emerald-500/20'
+                        }`}
                       >
-                        <Plus size={14} /> {t('ইন', 'IN')}
+                        <Plus size={16} strokeWidth={3} /> {t('ইন', 'IN')}
                       </button>
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
                           handleQuickAdjustment(item, 'OUT', 1); 
                         }}
-                        className="flex-1 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1"
+                        className={`flex-1 py-3 rounded-2xl text-[10px] font-black transition-all flex items-center justify-center gap-2 active:scale-95 ${
+                          isDarkMode 
+                          ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white' 
+                          : 'bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white hover:shadow-lg hover:shadow-rose-500/20'
+                        }`}
                       >
-                        <Minus size={14} /> {t('আউট', 'OUT')}
+                        <Minus size={16} strokeWidth={3} /> {t('আউট', 'OUT')}
                       </button>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
 
@@ -1469,21 +1563,21 @@ export default function App() {
               </div>
 
               {/* Dedicated Search Bar for All Products */}
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                 <input 
                   type="text"
                   placeholder={t('পণ্য বা বক্স নম্বর দিয়ে খুঁজুন...', 'Search by name or box number...')}
                   value={allProductsSearchTerm}
                   onChange={(e) => setAllProductsSearchTerm(e.target.value)}
-                  className={`w-full pl-12 pr-4 py-4 rounded-2xl border outline-none transition-all focus:ring-2 focus:ring-indigo-500/50 ${
-                    isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                  className={`w-full pl-12 pr-4 py-4 rounded-[1.5rem] border outline-none transition-all focus:ring-4 focus:ring-indigo-500/10 ${
+                    isDarkMode ? 'bg-slate-900 border-slate-800 focus:border-indigo-500' : 'bg-white border-slate-200 focus:border-indigo-500 shadow-sm'
                   }`}
                 />
                 {allProductsSearchTerm && (
                   <button 
                     onClick={() => setAllProductsSearchTerm('')}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 transition-colors"
                   >
                     <X size={18} />
                   </button>
@@ -1492,17 +1586,17 @@ export default function App() {
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-left border-collapse">
-                  <thead className={isDarkMode ? 'bg-slate-900' : 'bg-slate-100'}>
+                  <thead className={isDarkMode ? 'bg-slate-900/50' : 'bg-slate-50'}>
                     <tr>
-                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('নাম', 'Name')}</th>
-                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('পরিমাণ', 'Qty')}</th>
-                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('বক্স', 'Box')}</th>
-                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('তারিখ', 'Date')}</th>
+                      <th className="p-5 text-[10px] font-black uppercase tracking-widest text-slate-500">{t('নাম', 'Name')}</th>
+                      <th className="p-5 text-[10px] font-black uppercase tracking-widest text-slate-500">{t('পরিমাণ', 'Qty')}</th>
+                      <th className="p-5 text-[10px] font-black uppercase tracking-widest text-slate-500">{t('বক্স', 'Box')}</th>
+                      <th className="p-5 text-[10px] font-black uppercase tracking-widest text-slate-500">{t('তারিখ', 'Date')}</th>
                       {showPurchasePrice && (
-                        <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('কেনা', 'Buy')}</th>
+                        <th className="p-5 text-[10px] font-black uppercase tracking-widest text-slate-500">{t('কেনা', 'Buy')}</th>
                       )}
-                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('বিক্রি', 'Sell')}</th>
-                      <th className="p-4 text-[10px] font-bold uppercase text-slate-500">{t('অ্যাকশন', 'Action')}</th>
+                      <th className="p-5 text-[10px] font-black uppercase tracking-widest text-slate-500">{t('বিক্রি', 'Sell')}</th>
+                      <th className="p-5 text-[10px] font-black uppercase tracking-widest text-slate-500">{t('অ্যাকশন', 'Action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -1529,40 +1623,49 @@ export default function App() {
                         )}
                         <td className="p-4 text-xs font-bold text-emerald-500">₹{item.sellingPrice}</td>
                         <td className="p-4">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleQuickAdjustment(item, 'IN', 1); }}
-                              className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-500 rounded-lg"
+                              className={`p-2 rounded-xl transition-all active:scale-90 ${
+                                isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                              }`}
                               title={t('স্টক ইন', 'Stock In')}
                             >
-                              <Plus size={16} />
+                              <Plus size={14} strokeWidth={3} />
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleQuickAdjustment(item, 'OUT', 1); }}
-                              className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-500 rounded-lg"
+                              className={`p-2 rounded-xl transition-all active:scale-90 ${
+                                isDarkMode ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white' : 'bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white'
+                              }`}
                               title={t('স্টক আউট', 'Stock Out')}
                             >
-                              <Minus size={16} />
+                              <Minus size={14} strokeWidth={3} />
                             </button>
+                            <div className={`w-px h-4 mx-1 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 startEditing(item);
                               }}
-                              className="p-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-500 rounded-lg"
+                              className={`p-2 rounded-xl transition-all active:scale-90 ${
+                                isDarkMode ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white'
+                              }`}
                               title={t('এডিট', 'Edit')}
                             >
-                              <Edit2 size={16} />
+                              <Edit2 size={14} strokeWidth={2.5} />
                             </button>
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteItem(item.id);
                               }}
-                              className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-500 rounded-lg"
+                              className={`p-2 rounded-xl transition-all active:scale-90 ${
+                                isDarkMode ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white' : 'bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white'
+                              }`}
                               title={t('ডিলিট', 'Delete')}
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={14} strokeWidth={2.5} />
                             </button>
                           </div>
                         </td>
@@ -2048,59 +2151,75 @@ export default function App() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('পণ্যের নাম', 'Product Name')}</label>
-                    <input 
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">{t('পণ্যের নাম', 'Product Name')}</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                        <Package size={18} />
+                      </div>
+                      <input 
+                        type="text"
+                        placeholder={t('পণ্যের নাম লিখুন', 'Enter product name')}
+                        value={formData.name}
+                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        className={`w-full pl-12 pr-4 py-4 rounded-2xl border outline-none transition-all focus:ring-4 focus:ring-indigo-500/10 ${
+                          isDarkMode ? 'bg-slate-800 border-slate-700 focus:border-indigo-500' : 'bg-slate-50 border-slate-200 focus:border-indigo-500'
+                        }`}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('পরিমাণ', 'Quantity')}</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">{t('পরিমাণ', 'Quantity')}</label>
                     <input 
                       type="number"
+                      placeholder="0"
                       value={formData.quantity}
                       onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      className={`w-full px-4 py-4 rounded-2xl border outline-none transition-all focus:ring-4 focus:ring-indigo-500/10 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700 focus:border-indigo-500' : 'bg-slate-50 border-slate-200 focus:border-indigo-500'
                       }`}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('বক্স নাম্বার', 'Box Number')}</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">{t('বক্স নাম্বার', 'Box Number')}</label>
                     <input 
                       type="text"
+                      placeholder="e.g. A1"
                       value={formData.boxNumber}
                       onChange={(e) => setFormData({...formData, boxNumber: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
+                      className={`w-full px-4 py-4 rounded-2xl border outline-none transition-all focus:ring-4 focus:ring-indigo-500/10 ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700 focus:border-indigo-500' : 'bg-slate-50 border-slate-200 focus:border-indigo-500'
                       }`}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('কেনা দাম', 'Purchase Price')}</label>
-                    <input 
-                      type="number"
-                      value={formData.purchasePrice}
-                      onChange={(e) => setFormData({...formData, purchasePrice: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">{t('কেনা দাম', 'Purchase Price')}</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                      <input 
+                        type="number"
+                        placeholder="0.00"
+                        value={formData.purchasePrice}
+                        onChange={(e) => setFormData({...formData, purchasePrice: e.target.value})}
+                        className={`w-full pl-8 pr-4 py-4 rounded-2xl border outline-none transition-all focus:ring-4 focus:ring-indigo-500/10 ${
+                          isDarkMode ? 'bg-slate-800 border-slate-700 focus:border-indigo-500' : 'bg-slate-50 border-slate-200 focus:border-indigo-500'
+                        }`}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">{t('বিক্রি দাম', 'Selling Price')}</label>
-                    <input 
-                      type="number"
-                      value={formData.sellingPrice}
-                      onChange={(e) => setFormData({...formData, sellingPrice: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">{t('বিক্রি দাম', 'Selling Price')}</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 font-bold">₹</span>
+                      <input 
+                        type="number"
+                        placeholder="0.00"
+                        value={formData.sellingPrice}
+                        onChange={(e) => setFormData({...formData, sellingPrice: e.target.value})}
+                        className={`w-full pl-8 pr-4 py-4 rounded-2xl border outline-none transition-all focus:ring-4 focus:ring-indigo-500/10 ${
+                          isDarkMode ? 'bg-slate-800 border-slate-700 focus:border-indigo-500' : 'bg-slate-50 border-slate-200 focus:border-indigo-500'
+                        }`}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -2181,31 +2300,43 @@ export default function App() {
                 </div>
 
                 {/* Quick Stock Adjustment */}
-                <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-wider">
-                    {t('কুইক স্টক অ্যাডজাস্টমেন্ট', 'Quick Stock Adjustment')}
-                  </p>
+                <div className={`p-5 rounded-3xl border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      {t('কুইক স্টক অ্যাডজাস্টমেন্ট', 'Quick Adjustment')}
+                    </p>
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 rounded-full bg-indigo-500" />
+                      <div className="w-1 h-1 rounded-full bg-indigo-500/50" />
+                      <div className="w-1 h-1 rounded-full bg-indigo-500/20" />
+                    </div>
+                  </div>
                   <div className="flex items-center gap-3">
-                    <input 
-                      type="number"
-                      value={adjustmentAmount}
-                      onChange={(e) => setAdjustmentAmount(e.target.value)}
-                      className={`w-20 px-3 py-2 rounded-xl border text-center font-bold outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                        isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
-                      }`}
-                    />
-                    <button 
-                      onClick={() => handleQuickAdjustment(selectedItem, 'IN')}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95"
-                    >
-                      <Plus size={16} /> {t('ইন', 'IN')}
-                    </button>
-                    <button 
-                      onClick={() => handleQuickAdjustment(selectedItem, 'OUT')}
-                      className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95"
-                    >
-                      <Minus size={16} /> {t('আউট', 'OUT')}
-                    </button>
+                    <div className="relative flex-1">
+                      <input 
+                        type="number"
+                        value={adjustmentAmount}
+                        onChange={(e) => setAdjustmentAmount(e.target.value)}
+                        className={`w-full px-4 py-3 rounded-2xl border text-center font-black text-lg outline-none transition-all focus:ring-4 focus:ring-indigo-500/10 ${
+                          isDarkMode ? 'bg-slate-900 border-slate-700 focus:border-indigo-500' : 'bg-white border-slate-200 focus:border-indigo-500'
+                        }`}
+                      />
+                      <span className="absolute -top-2 left-3 px-1 bg-inherit text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t('পরিমাণ', 'Amount')}</span>
+                    </div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <button 
+                        onClick={() => handleQuickAdjustment(selectedItem, 'IN')}
+                        className="py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+                      >
+                        <Plus size={18} strokeWidth={3} /> {t('ইন', 'IN')}
+                      </button>
+                      <button 
+                        onClick={() => handleQuickAdjustment(selectedItem, 'OUT')}
+                        className="py-3 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-rose-500/20"
+                      >
+                        <Minus size={18} strokeWidth={3} /> {t('আউট', 'OUT')}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
