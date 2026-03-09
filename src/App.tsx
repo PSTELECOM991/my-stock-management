@@ -63,6 +63,11 @@ export default function App() {
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
   const [adjustmentAmount, setAdjustmentAmount] = useState<string>('1');
+  const [confirmingAdjustment, setConfirmingAdjustment] = useState<{
+    item: StockItem;
+    type: 'IN' | 'OUT';
+    amount: number;
+  } | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -419,7 +424,7 @@ export default function App() {
     }
   };
 
-  const handleQuickAdjustment = async (item: StockItem, type: 'IN' | 'OUT', customAmount?: number) => {
+  const handleQuickAdjustment = (item: StockItem, type: 'IN' | 'OUT', customAmount?: number) => {
     const amount = customAmount || parseInt(adjustmentAmount);
     if (isNaN(amount) || amount <= 0) {
       setError(language === 'BN' ? 'সঠিক সংখ্যা দিন' : 'Enter valid number');
@@ -430,6 +435,14 @@ export default function App() {
       setError(language === 'BN' ? 'পর্যাপ্ত স্টক নেই!' : 'Insufficient stock!');
       return;
     }
+
+    setConfirmingAdjustment({ item, type, amount });
+  };
+
+  const executeAdjustment = async () => {
+    if (!confirmingAdjustment) return;
+    const { item, type, amount } = confirmingAdjustment;
+    setConfirmingAdjustment(null);
 
     const newQuantity = type === 'IN' ? item.quantity + amount : item.quantity - amount;
     const lastUpdated = new Date().toISOString();
@@ -2530,6 +2543,71 @@ export default function App() {
                 >
                   <Share size={20} /> {t('শেয়ার', 'Share')}
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Adjustment Confirmation Modal */}
+      <AnimatePresence>
+        {confirmingAdjustment && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmingAdjustment(null)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden ${
+                isDarkMode ? 'bg-slate-900' : 'bg-white'
+              }`}
+            >
+              <div className="p-8 text-center">
+                <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center ${
+                  confirmingAdjustment.type === 'IN' 
+                  ? (isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+                  : (isDarkMode ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-50 text-rose-600')
+                }`}>
+                  {confirmingAdjustment.type === 'IN' ? <ArrowUpRight size={40} /> : <ArrowDownLeft size={40} />}
+                </div>
+                
+                <h3 className="text-2xl font-black mb-2">
+                  {t('নিশ্চিত করুন', 'Confirm Action')}
+                </h3>
+                <p className="text-slate-500 text-sm mb-8 leading-relaxed">
+                  {language === 'BN' ? (
+                    <>আপনি কি নিশ্চিত যে আপনি <span className="font-bold text-indigo-500">{confirmingAdjustment.item.name}</span> এর জন্য <span className="font-bold text-indigo-500">{confirmingAdjustment.amount}</span> টি আইটেম <span className={confirmingAdjustment.type === 'IN' ? 'text-emerald-500' : 'text-rose-500'}>{confirmingAdjustment.type === 'IN' ? 'স্টক ইন' : 'স্টক আউট'}</span> করতে চান?</>
+                  ) : (
+                    <>Are you sure you want to <span className={confirmingAdjustment.type === 'IN' ? 'text-emerald-500 font-bold' : 'text-rose-500 font-bold'}>{confirmingAdjustment.type === 'IN' ? 'Stock In' : 'Stock Out'}</span> <span className="font-bold text-indigo-500">{confirmingAdjustment.amount}</span> units for <span className="font-bold text-indigo-500">{confirmingAdjustment.item.name}</span>?</>
+                  )}
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setConfirmingAdjustment(null)}
+                    className={`py-4 rounded-2xl font-bold transition-all ${
+                      isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {t('বাতিল', 'Cancel')}
+                  </button>
+                  <button 
+                    onClick={executeAdjustment}
+                    className={`py-4 rounded-2xl font-black text-white shadow-lg transition-all active:scale-95 ${
+                      confirmingAdjustment.type === 'IN' 
+                      ? 'bg-emerald-500 shadow-emerald-500/20 hover:bg-emerald-600' 
+                      : 'bg-rose-500 shadow-rose-500/20 hover:bg-rose-600'
+                    }`}
+                  >
+                    {t('হ্যাঁ, নিশ্চিত', 'Yes, Confirm')}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
