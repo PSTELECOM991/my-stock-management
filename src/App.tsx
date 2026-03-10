@@ -22,6 +22,7 @@ import Markdown from 'react-markdown';
 import { GoogleGenAI } from "@google/genai";
 import { StockItem, Transaction } from './types';
 import { supabase } from './supabaseClient';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 type View = 'HOME' | 'HISTORY' | 'ALL_PRODUCTS' | 'SETTINGS' | 'AI_ANALYSIS' | 'BACKUP' | 'LOW_ITEMS';
 
@@ -2628,6 +2629,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Vercel Speed Insights */}
+      <SpeedInsights />
 
     </div>
   );
